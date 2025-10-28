@@ -723,7 +723,7 @@ ipcMain.handle('check-for-updates', async () => {
     const currentVersion = '1.0.0';
     
     // ✅ يمكنك تغيير هذا الرابط لملف JSON على سيرفرك أو GitHub
-    const updateUrl = 'https://raw.githubusercontent.com/YOUR_USERNAME/hanouty-dz/main/update.json';
+    const updateUrl = 'https://raw.githubusercontent.com/ilyes27dz/hanouty-pos-/main/update.json';
     
     // محاولة جلب معلومات التحديث
     return new Promise((resolve) => {
