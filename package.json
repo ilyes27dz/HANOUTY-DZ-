@@ -1,0 +1,57 @@
+{
+  "name": "nidhamy-pos",
+  "version": "10.0.1",
+  "description": "Nidhamy POS Desktop Application",
+  "main": "src/main/electron.js",
+  "homepage": "./",
+  "scripts": {
+    "react:start": "cross-env BROWSER=none react-scripts start",
+    "electron:start": "wait-on http://localhost:3000 && electron . --disable-gpu --no-sandbox",
+    "start": "concurrently \"npm run react:start\" \"npm run electron:start\"",
+    "build": "react-scripts build && tsc -p tsconfig.electron.json",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^5.14.0",
+    "@mui/material": "^5.18.0",
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.42",
+    "@types/react-dom": "^18.2.17",
+    "jsbarcode": "^3.12.1",
+    "react": "^18.2.0",
+    "react-barcode": "^1.6.1",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1",
+    "recharts": "^3.3.0",
+    "sql.js": "^1.13.0",
+    "typescript": "^5.3.2"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "cross-env": "^7.0.3",
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.4",
+    "electron-updater": "^6.1.4",
+    "wait-on": "^9.0.1"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
