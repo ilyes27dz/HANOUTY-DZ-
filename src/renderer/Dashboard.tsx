@@ -108,275 +108,321 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, onLock }) => {
 
   // ============================================
   // 🔹 Load Initial Data
-  // ============================================
-  const loadInitialData = async () => {
-    console.log('📥 Loading initial data...');
-    
-    // تحميل إعدادات المتجر
-    const saved = localStorage.getItem('storeSettings');
-    console.log('🔍 Store Settings:', saved);
-    
-    if (!saved) {
-      console.log('✅ No settings, showing Initial Setup');
-      setShowInitialSetup(true);
-    } else {
-      setStoreSettings(JSON.parse(saved));
-    }
+// ============================================
+// 🔹 Load Initial Data
+// ============================================
+const loadInitialData = async () => {
+  console.log('📥 Loading initial data...');
+  
+  // تحميل إعدادات المتجر
+  const saved = localStorage.getItem('storeSettings');
+  console.log('🔍 Store Settings:', saved);
+  
+  if (!saved) {
+    console.log('✅ No settings, showing Initial Setup');
+    setShowInitialSetup(true);
+  } else {
+    setStoreSettings(JSON.parse(saved));
+  }
 
-    // تحميل الإشعارات المخفية
-    const hidden = localStorage.getItem('hiddenNotifications');
-    if (hidden) {
-      setHiddenNotifications(JSON.parse(hidden));
-    }
+  // تحميل الإشعارات المخفية
+  const hidden = localStorage.getItem('hiddenNotifications');
+  if (hidden) {
+    setHiddenNotifications(JSON.parse(hidden));
+  }
 
-    // حساب الأيام المتبقية
-    const isTrial = localStorage.getItem('isTrial') === 'true';
-    const trialStartDate = localStorage.getItem('trialStartDate');
-    const trialDays = parseInt(localStorage.getItem('trialDays') || '5', 10);
-    const activationType = localStorage.getItem('activationType') || '';
+  // حساب الأيام المتبقية
+  const isTrial = localStorage.getItem('isTrial') === 'true';
+  const trialStartDate = localStorage.getItem('trialStartDate');
+  const trialDays = parseInt(localStorage.getItem('trialDays') || '5', 10);
+  const activationType = localStorage.getItem('activationType') || '';
 
-    setIsTrial(isTrial);
-    setActivationType(activationType);
+  setIsTrial(isTrial);
+  setActivationType(activationType);
 
-    if (isTrial && trialStartDate) {
-      const startDate = new Date(trialStartDate);
-      const currentDate = new Date();
-      const daysPassed = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-      const daysLeft = trialDays - daysPassed;
-      setTrialDaysLeft(daysLeft > 0 ? daysLeft : 0);
-    }
+  if (isTrial && trialStartDate) {
+    const startDate = new Date(trialStartDate);
+    const currentDate = new Date();
+    const daysPassed = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    const daysLeft = trialDays - daysPassed;
+    setTrialDaysLeft(daysLeft > 0 ? daysLeft : 0);
+  }
 
-    // الحصول على Machine ID
-    if (typeof window !== 'undefined' && (window as any).electron) {
-      try {
-        const result = await (window as any).electron.getMachineInfo();
-        if (result && result.success) {
-          setComputerName(result.computerName);
-          setMachineId(result.machineId);
-          console.log('✅ Machine Info:', result.computerName, result.machineId);
-        }
-      } catch (error) {
-        console.error('❌ Error getting machine info:', error);
-      }
-    }
-  };
-
-  // ============================================
-  // 🔹 Check Daily Reminder
-  // ============================================
-  const checkDailyReminder = () => {
-    const lastReminder = localStorage.getItem('lastDailyReminder');
-    const today = new Date().toDateString();
-    const isTrial = localStorage.getItem('isTrial') === 'true';
-    
-    if (isTrial && lastReminder !== today) {
-      setTimeout(() => {
-        setShowDailyReminder(true);
-        localStorage.setItem('lastDailyReminder', today);
-      }, 3000);
-    }
-  };
-
-  // ============================================
-  // 🔹 Load Notifications (مع فلترة المخفية)
-  // ============================================
-  const loadNotifications = async () => {
-    const newNotifications: any[] = [];
-    const hidden = JSON.parse(localStorage.getItem('hiddenNotifications') || '[]');
-
-    // إشعار 1: انتهاء النسخة التجريبية
-    const isTrial = localStorage.getItem('isTrial') === 'true';
-    const trialStartDate = localStorage.getItem('trialStartDate');
-    const trialDays = parseInt(localStorage.getItem('trialDays') || '5', 10);
-
-    if (isTrial && trialStartDate && !hidden.includes('trial-ending')) {
-      const startDate = new Date(trialStartDate);
-      const currentDate = new Date();
-      const daysPassed = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-      const daysLeft = trialDays - daysPassed;
-
-      if (daysLeft <= 3 && daysLeft > 0) {
-        newNotifications.push({
-          id: 'trial-ending',
-          type: 'warning',
-          titleAr: `⏰ تنبيه: ${daysLeft} ${daysLeft === 1 ? 'يوم' : 'أيام'} متبقية`,
-          titleFr: `⏰ Alerte: ${daysLeft} jour${daysLeft > 1 ? 's' : ''} restant${daysLeft > 1 ? 's' : ''}`,
-          messageAr: 'ستنتهي النسخة التجريبية قريباً. قم بالترقية للنسخة الكاملة!',
-          messageFr: 'Votre période d\'essai se termine bientôt. Passez à la version complète!',
-          date: new Date().toLocaleString('ar-DZ'),
-          canHide: true,
-        });
-      } else if (daysLeft <= 0 && !hidden.includes('trial-expired')) {
-        newNotifications.push({
-          id: 'trial-expired',
-          type: 'error',
-          titleAr: '❌ انتهت النسخة التجريبية',
-          titleFr: '❌ Période d\'essai expirée',
-          messageAr: 'يرجى شراء النسخة الكاملة للاستمرار!',
-          messageFr: 'Veuillez acheter la version complète pour continuer!',
-          date: new Date().toLocaleString('ar-DZ'),
-          canHide: false, // لا يمكن إخفاؤها
-        });
-      }
-    }
-
-    // إشعار 2 & 3: المخزون
+  // الحصول على Machine ID
+  if (typeof window !== 'undefined' && (window as any).electron) {
     try {
-      if ((window as any).electron) {
-        const products = await (window as any).electron.getProducts();
-        
-        const lowStockProducts = products.filter((p: any) => 
-          p.stockActive && p.stock <= p.stockAlerte && p.stock > 0
-        );
-
-        if (lowStockProducts.length > 0 && !hidden.includes('low-stock')) {
-          newNotifications.push({
-            id: 'low-stock',
-            type: 'warning',
-            titleAr: `⚠️ ${lowStockProducts.length} منتجات مخزونها منخفض`,
-            titleFr: `⚠️ ${lowStockProducts.length} produits en stock faible`,
-            messageAr: 'بعض المنتجات تحتاج إعادة تموين!',
-            messageFr: 'Certains produits nécessitent un réapprovisionnement!',
-            date: new Date().toLocaleString('ar-DZ'),
-            products: lowStockProducts.slice(0, 5).map((p: any) => p.designation),
-            canHide: true,
-          });
-        }
-
-        const outOfStockProducts = products.filter((p: any) => 
-          p.stockActive && p.stock === 0
-        );
-
-        if (outOfStockProducts.length > 0 && !hidden.includes('out-of-stock')) {
-          newNotifications.push({
-            id: 'out-of-stock',
-            type: 'error',
-            titleAr: `🚫 ${outOfStockProducts.length} منتجات نفذت`,
-            titleFr: `🚫 ${outOfStockProducts.length} produits épuisés`,
-            messageAr: 'المنتجات التالية نفذت من المخزون!',
-            messageFr: 'Les produits suivants sont épuisés!',
-            date: new Date().toLocaleString('ar-DZ'),
-            products: outOfStockProducts.slice(0, 5).map((p: any) => p.designation),
-            canHide: true,
-          });
-        }
+      const result = await (window as any).electron.getMachineInfo();
+      if (result && result.success) {
+        setComputerName(result.computerName);
+        setMachineId(result.machineId);
+        console.log('✅ Machine Info:', result.computerName, result.machineId);
       }
     } catch (error) {
-      console.error('Error loading products for notifications:', error);
+      console.error('❌ Error getting machine info:', error);
     }
+  }
 
-    setNotifications(newNotifications);
-    setNotificationCount(newNotifications.length);
-  };
-  // ============================================
-  // 🔹 Notification Handlers
-  // ============================================
-  const handleHideNotification = (notificationId: string) => {
-    const hidden = JSON.parse(localStorage.getItem('hiddenNotifications') || '[]');
-    hidden.push(notificationId);
-    localStorage.setItem('hiddenNotifications', JSON.stringify(hidden));
-    setHiddenNotifications(hidden);
-    loadNotifications(); // إعادة تحميل بعد الإخفاء
-  };
-
-  const handleDeleteNotification = (notificationId: string) => {
-    setNotifications(notifications.filter(n => n.id !== notificationId));
-    setNotificationCount(prev => prev - 1);
-  };
-
-  const handleClearAllNotifications = () => {
-    const allIds = notifications.filter(n => n.canHide).map(n => n.id);
-    const hidden = JSON.parse(localStorage.getItem('hiddenNotifications') || '[]');
-    const newHidden = [...new Set([...hidden, ...allIds])];
-    localStorage.setItem('hiddenNotifications', JSON.stringify(newHidden));
-    setHiddenNotifications(newHidden);
-    loadNotifications();
-  };
-
-  // ============================================
-  // 🔹 Update Handlers
-  // ============================================
-  const checkForUpdates = async () => {
-    setCheckingUpdate(true);
+  // ✅ إضافة: التحقق من التحديثات تلقائياً بعد 5 ثواني
+  setTimeout(async () => {
+    console.log('🔄 Auto-checking for updates...');
     try {
       if ((window as any).electron) {
         const result = await (window as any).electron.checkForUpdates();
+        console.log('📥 Auto-update result:', result);
+        
         if (result.available) {
+          console.log('✅ Update available! Showing notification...');
           setAvailableUpdate(result);
           setShowUpdateDialog(true);
-        } else {
-          alert(isArabic 
-            ? '✅ أنت تستخدم أحدث إصدار!\n\nالإصدار الحالي: 1.0.0'
-            : '✅ Vous utilisez la dernière version!\n\nVersion actuelle: 1.0.0'
-          );
         }
       }
     } catch (error) {
-      console.error('Update check error:', error);
-      alert(isArabic 
-        ? '❌ خطأ في التحقق من التحديثات!'
-        : '❌ Erreur lors de la vérification des mises à jour!'
-      );
-    } finally {
-      setCheckingUpdate(false);
+      console.error('❌ Auto-update check error:', error);
     }
-  };
+  }, 5000);
+};
 
-  const handleDownloadUpdate = async () => {
-    if (availableUpdate && availableUpdate.downloadUrl) {
-      try {
-        if ((window as any).electron) {
-          await (window as any).electron.downloadUpdate(availableUpdate.downloadUrl);
-          alert(isArabic
-            ? '✅ تم فتح رابط التحديث في المتصفح!'
-            : '✅ Lien de mise à jour ouvert dans le navigateur!'
-          );
-        }
-      } catch (error) {
-        console.error('Download update error:', error);
+// ============================================
+// 🔹 Check Daily Reminder
+// ============================================
+const checkDailyReminder = () => {
+  const lastReminder = localStorage.getItem('lastDailyReminder');
+  const today = new Date().toDateString();
+  const isTrial = localStorage.getItem('isTrial') === 'true';
+  
+  if (isTrial && lastReminder !== today) {
+    setTimeout(() => {
+      setShowDailyReminder(true);
+      localStorage.setItem('lastDailyReminder', today);
+    }, 3000);
+  }
+};
+
+// ============================================
+// 🔹 Load Notifications (مع فلترة المخفية)
+// ============================================
+const loadNotifications = async () => {
+  const newNotifications: any[] = [];
+  const hidden = JSON.parse(localStorage.getItem('hiddenNotifications') || '[]');
+
+  // إشعار 1: انتهاء النسخة التجريبية
+  const isTrial = localStorage.getItem('isTrial') === 'true';
+  const trialStartDate = localStorage.getItem('trialStartDate');
+  const trialDays = parseInt(localStorage.getItem('trialDays') || '5', 10);
+
+  if (isTrial && trialStartDate && !hidden.includes('trial-ending')) {
+    const startDate = new Date(trialStartDate);
+    const currentDate = new Date();
+    const daysPassed = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    const daysLeft = trialDays - daysPassed;
+
+    if (daysLeft <= 3 && daysLeft > 0) {
+      newNotifications.push({
+        id: 'trial-ending',
+        type: 'warning',
+        titleAr: `⏰ تنبيه: ${daysLeft} ${daysLeft === 1 ? 'يوم' : 'أيام'} متبقية`,
+        titleFr: `⏰ Alerte: ${daysLeft} jour${daysLeft > 1 ? 's' : ''} restant${daysLeft > 1 ? 's' : ''}`,
+        messageAr: 'ستنتهي النسخة التجريبية قريباً. قم بالترقية للنسخة الكاملة!',
+        messageFr: 'Votre période d\'essai se termine bientôt. Passez à la version complète!',
+        date: new Date().toLocaleString('ar-DZ'),
+        canHide: true,
+      });
+    } else if (daysLeft <= 0 && !hidden.includes('trial-expired')) {
+      newNotifications.push({
+        id: 'trial-expired',
+        type: 'error',
+        titleAr: '❌ انتهت النسخة التجريبية',
+        titleFr: '❌ Période d\'essai expirée',
+        messageAr: 'يرجى شراء النسخة الكاملة للاستمرار!',
+        messageFr: 'Veuillez acheter la version complète pour continuer!',
+        date: new Date().toLocaleString('ar-DZ'),
+        canHide: false, // لا يمكن إخفاؤها
+      });
+    }
+  }
+
+  // إشعار 2 & 3: المخزون
+  try {
+    if ((window as any).electron) {
+      const products = await (window as any).electron.getProducts();
+      
+      const lowStockProducts = products.filter((p: any) => 
+        p.stockActive && p.stock <= p.stockAlerte && p.stock > 0
+      );
+
+      if (lowStockProducts.length > 0 && !hidden.includes('low-stock')) {
+        newNotifications.push({
+          id: 'low-stock',
+          type: 'warning',
+          titleAr: `⚠️ ${lowStockProducts.length} منتجات مخزونها منخفض`,
+          titleFr: `⚠️ ${lowStockProducts.length} produits en stock faible`,
+          messageAr: 'بعض المنتجات تحتاج إعادة تموين!',
+          messageFr: 'Certains produits nécessitent un réapprovisionnement!',
+          date: new Date().toLocaleString('ar-DZ'),
+          products: lowStockProducts.slice(0, 5).map((p: any) => p.designation),
+          canHide: true,
+        });
+      }
+
+      const outOfStockProducts = products.filter((p: any) => 
+        p.stockActive && p.stock === 0
+      );
+
+      if (outOfStockProducts.length > 0 && !hidden.includes('out-of-stock')) {
+        newNotifications.push({
+          id: 'out-of-stock',
+          type: 'error',
+          titleAr: `🚫 ${outOfStockProducts.length} منتجات نفذت`,
+          titleFr: `🚫 ${outOfStockProducts.length} produits épuisés`,
+          messageAr: 'المنتجات التالية نفذت من المخزون!',
+          messageFr: 'Les produits suivants sont épuisés!',
+          date: new Date().toLocaleString('ar-DZ'),
+          products: outOfStockProducts.slice(0, 5).map((p: any) => p.designation),
+          canHide: true,
+        });
       }
     }
-  };
+  } catch (error) {
+    console.error('Error loading products for notifications:', error);
+  }
 
-  // ============================================
-  // 🔹 Database Backup Handler
-  // ============================================
-  const handleBackupDatabase = async () => {
+  setNotifications(newNotifications);
+  setNotificationCount(newNotifications.length);
+};
+
+// ============================================
+// 🔹 Notification Handlers
+// ============================================
+const handleHideNotification = (notificationId: string) => {
+  const hidden = JSON.parse(localStorage.getItem('hiddenNotifications') || '[]');
+  hidden.push(notificationId);
+  localStorage.setItem('hiddenNotifications', JSON.stringify(hidden));
+  setHiddenNotifications(hidden);
+  loadNotifications(); // إعادة تحميل بعد الإخفاء
+};
+
+const handleDeleteNotification = (notificationId: string) => {
+  setNotifications(notifications.filter(n => n.id !== notificationId));
+  setNotificationCount(prev => prev - 1);
+};
+
+const handleClearAllNotifications = () => {
+  const allIds = notifications.filter(n => n.canHide).map(n => n.id);
+  const hidden = JSON.parse(localStorage.getItem('hiddenNotifications') || '[]');
+  const newHidden = [...new Set([...hidden, ...allIds])];
+  localStorage.setItem('hiddenNotifications', JSON.stringify(newHidden));
+  setHiddenNotifications(newHidden);
+  loadNotifications();
+};
+
+// ============================================
+// 🔹 Update Handlers
+// ============================================
+const checkForUpdates = async () => {
+  setCheckingUpdate(true);
+  console.log('🔄 Checking for updates...');
+  
+  try {
+    if ((window as any).electron) {
+      console.log('📡 Calling electron.checkForUpdates()...');
+      const result = await (window as any).electron.checkForUpdates();
+      console.log('📥 Update result:', result);
+      
+      if (result.available) {
+        console.log('✅ Update available!');
+        setAvailableUpdate(result);
+        setShowUpdateDialog(true);
+      } else {
+        console.log('ℹ️ No update available');
+        alert(isArabic 
+          ? '✅ أنت تستخدم أحدث إصدار!\n\nالإصدار الحالي: 1.0.0'
+          : '✅ Vous utilisez la dernière version!\n\nVersion actuelle: 1.0.0'
+        );
+      }
+    } else {
+      console.error('❌ Electron API not available');
+    }
+  } catch (error) {
+    console.error('❌ Update check error:', error);
+    alert(isArabic 
+      ? '❌ خطأ في التحقق من التحديثات!'
+      : '❌ Erreur lors de la vérification des mises à jour!'
+    );
+  } finally {
+    setCheckingUpdate(false);
+  }
+};
+
+const handleDownloadUpdate = async () => {
+  if (availableUpdate && availableUpdate.downloadUrl) {
     try {
+      console.log('📥 Downloading from:', availableUpdate.downloadUrl);
+      
       if ((window as any).electron) {
-        const result = await (window as any).electron.backupDatabase();
+        const result = await (window as any).electron.downloadUpdate(availableUpdate.downloadUrl);
+        
         if (result.success) {
-          alert(isArabic 
-            ? `✅ تم حفظ النسخة الاحتياطية!\n\nالمسار: ${result.path}`
-            : `✅ Sauvegarde réussie!\n\nChemin: ${result.path}`
+          alert(isArabic
+            ? '✅ تم فتح رابط التحديث في المتصفح!\n\nيرجى تنزيل الملف وتثبيته.'
+            : '✅ Lien de téléchargement ouvert!\n\nVeuillez télécharger et installer le fichier.'
           );
-        } else {
-          alert(isArabic 
-            ? '❌ فشل حفظ النسخة الاحتياطية!'
-            : '❌ Échec de la sauvegarde!'
-          );
+          setShowUpdateDialog(false);
         }
       }
     } catch (error) {
-      console.error('Backup error:', error);
-      alert(isArabic 
-        ? '❌ خطأ في حفظ النسخة الاحتياطية!'
-        : '❌ Erreur lors de la sauvegarde!'
+      console.error('❌ Download error:', error);
+      alert(isArabic
+        ? '❌ خطأ في فتح رابط التحديث!'
+        : '❌ Erreur lors de l\'ouverture du lien!'
       );
     }
-  };
+  } else {
+    alert(isArabic
+      ? '❌ رابط التحديث غير متوفر!'
+      : '❌ Lien de téléchargement non disponible!'
+    );
+  }
+};
 
-  // ============================================
-  // 🔹 Other Handlers
-  // ============================================
-  const handleInitialSetup = () => {
-    if (!storeSettings.storeName || !storeSettings.activity) {
-      alert(isArabic ? 'يرجى ملء الحقول المطلوبة' : 'Veuillez remplir les champs requis');
-      return;
+// ============================================
+// 🔹 Database Backup Handler
+// ============================================
+const handleBackupDatabase = async () => {
+  try {
+    if ((window as any).electron) {
+      const result = await (window as any).electron.backupDatabase();
+      if (result.success) {
+        alert(isArabic 
+          ? `✅ تم حفظ النسخة الاحتياطية!\n\nالمسار: ${result.path}\nالحجم: ${result.size}\nعدد المنتجات: ${result.productCount}`
+          : `✅ Sauvegarde réussie!\n\nChemin: ${result.path}\nTaille: ${result.size}\nNombre de produits: ${result.productCount}`
+        );
+      } else {
+        alert(isArabic 
+          ? '❌ فشل حفظ النسخة الاحتياطية!'
+          : '❌ Échec de la sauvegarde!'
+        );
+      }
     }
-    localStorage.setItem('storeSettings', JSON.stringify(storeSettings));
-    setShowInitialSetup(false);
-  };
+  } catch (error) {
+    console.error('Backup error:', error);
+    alert(isArabic 
+      ? '❌ خطأ في حفظ النسخة الاحتياطية!'
+      : '❌ Erreur lors de la sauvegarde!'
+    );
+  }
+};
+
+// ============================================
+// 🔹 Other Handlers
+// ============================================
+const handleInitialSetup = () => {
+  if (!storeSettings.storeName || !storeSettings.activity) {
+    alert(isArabic ? 'يرجى ملء الحقول المطلوبة' : 'Veuillez remplir les champs requis');
+    return;
+  }
+  localStorage.setItem('storeSettings', JSON.stringify(storeSettings));
+  setShowInitialSetup(false);
+};
 
   const handleAnydeskClick = () => {
     try {
