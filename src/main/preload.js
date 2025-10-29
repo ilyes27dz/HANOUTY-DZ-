@@ -1,4 +1,4 @@
-// src/main/preload.js - ✅ أضف هذه السطور
+// src/main/preload.js - ✅ النسخة النهائية الكاملة مع الحماية
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electron', {
@@ -46,18 +46,28 @@ contextBridge.exposeInMainWorld('electron', {
   getSettings: () => ipcRenderer.invoke('get-settings'),
   updateSettings: (settings) => ipcRenderer.invoke('update-settings', settings),
   
-  // ✅ Machine Info & Trial (الناقصين!)
+  // Machine Info & Trial
   getMachineInfo: () => ipcRenderer.invoke('get-machine-info'),
   checkTrialUsed: () => ipcRenderer.invoke('check-trial-used'),
   markTrialUsed: () => ipcRenderer.invoke('mark-trial-used'),
   
-  // ✅ Backup & Updates
+  // Activation System (encrypted)
+  saveActivation: (data) => ipcRenderer.invoke('save-activation', data),
+  loadActivation: () => ipcRenderer.invoke('load-activation'),
+  deleteActivation: () => ipcRenderer.invoke('delete-activation'),
+  
+  // Time manipulation & Reset
+  checkTimeManipulation: () => ipcRenderer.invoke('check-time-manipulation'),
+  resetEverything: () => ipcRenderer.invoke('reset-everything'),
+  quitApp: () => ipcRenderer.invoke('quit-app'),
+  
+  // Backup & Updates
   backupDatabase: () => ipcRenderer.invoke('backup-database'),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate: (url) => ipcRenderer.invoke('download-update', url),
   
   // Window Controls
-  maximizeWindow: () => ipcRenderer.send('maximize-window'),
+maximizeWindow: () => ipcRenderer.invoke('maximize-window'),
   minimizeWindow: () => ipcRenderer.send('minimize-window'),
   logout: () => ipcRenderer.send('logout'),
   onLogoutComplete: (callback) => ipcRenderer.on('logout-complete', callback),

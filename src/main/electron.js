@@ -1,9 +1,10 @@
-// src/main/electron.js - ✅ النسخة النهائية الكاملة مع كل الميزات + Updates
+// src/main/electron.js - ✅ النسخة النهائية الكاملة 891+ سطر
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const https = require('https'); // ✅ للتحديثات
+const https = require('https');
+const crypto = require('crypto');
 const initSqlJs = require('sql.js');
 
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
@@ -13,7 +14,31 @@ let mainWindow = null;
 let db = null;
 
 // ============================================
-// 🔹 تهيئة قاعدة البيانات مع بيانات افتراضية
+// 🔹 نظام التشفير للحماية
+// ============================================
+const ENCRYPTION_KEY = 'HANOUTY_2025_SECRET_KEY_32BYTE!';
+const IV_LENGTH = 16;
+
+function encrypt(text) {
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+  let encrypted = cipher.update(text);
+  encrypted = Buffer.concat([encrypted, cipher.final()]);
+  return iv.toString('hex') + ':' + encrypted.toString('hex');
+}
+
+function decrypt(text) {
+  const parts = text.split(':');
+  const iv = Buffer.from(parts.shift(), 'hex');
+  const encryptedText = Buffer.from(parts.join(':'), 'hex');
+  const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+  let decrypted = decipher.update(encryptedText);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  return decrypted.toString();
+}
+
+// ============================================
+// 🔹 تهيئة قاعدة البيانات
 // ============================================
 async function initDatabase() {
   const SQL = await initSqlJs({
@@ -31,7 +56,6 @@ async function initDatabase() {
     console.log('✅ New database created');
   }
 
-  // ✅ جدول المنتجات (مع حقول Smartphone)
   db.run(`
     CREATE TABLE IF NOT EXISTS products (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -82,7 +106,6 @@ async function initDatabase() {
     )
   `);
 
-  // ✅ إضافة حقول Smartphone للجداول القديمة
   try {
     db.run(`ALTER TABLE products ADD COLUMN processeur TEXT`);
     db.run(`ALTER TABLE products ADD COLUMN systeme TEXT DEFAULT 'ANDROID'`);
@@ -109,9 +132,6 @@ async function initDatabase() {
   console.log('✅ Database initialized:', dbPath);
 }
 
-// ============================================
-// 🔹 إضافة بيانات افتراضية
-// ============================================
 async function addDefaultData() {
   try {
     const settingsCheck = db.exec('SELECT COUNT(*) as count FROM settings');
@@ -182,7 +202,7 @@ function resultToArray(result) {
 }
 
 // ============================================
-// 🔹 IPC HANDLERS - معلومات الجهاز ✅
+// 🔹 IPC HANDLERS - معلومات الجهاز
 // ============================================
 ipcMain.handle('get-machine-info', async () => {
   try {
@@ -217,7 +237,7 @@ ipcMain.handle('get-machine-info', async () => {
 });
 
 // ============================================
-// 🔹 IPC HANDLERS - علامة التجربة الدائمة ✅
+// 🔹 IPC HANDLERS - علامة التجربة الدائمة
 // ============================================
 ipcMain.handle('check-trial-used', async () => {
   try {
@@ -240,9 +260,117 @@ ipcMain.handle('mark-trial-used', async () => {
 });
 
 // ============================================
+// 🔹 حماية ضد تغيير التاريخ
+// ============================================
+ipcMain.handle('check-time-manipulation', async () => {
+  try {
+    const lastTimePath = path.join(app.getPath('userData'), '.last_time');
+    const currentTime = new Date().getTime();
+    
+    if (fs.existsSync(lastTimePath)) {
+      const lastTime = parseInt(fs.readFileSync(lastTimePath, 'utf8'), 10);
+      
+      if (currentTime < lastTime) {
+        console.log('⚠️ TIME MANIPULATION DETECTED!');
+        return { 
+          success: false, 
+          manipulated: true,
+          message: 'تم اكتشاف تلاعب في تاريخ النظام!' 
+        };
+      }
+    }
+    
+    fs.writeFileSync(lastTimePath, currentTime.toString());
+    return { success: true, manipulated: false };
+  } catch (error) {
+    console.error('❌ Time check error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// ============================================
+// 🔹 Reset Everything & Quit App
+// ============================================
+ipcMain.handle('reset-everything', async () => {
+  try {
+    const userDataPath = app.getPath('userData');
+    
+    const activationPath = path.join(userDataPath, '.activation');
+    if (fs.existsSync(activationPath)) {
+      fs.unlinkSync(activationPath);
+      console.log('✅ Activation deleted');
+    }
+    
+    const trialFlagPath = path.join(userDataPath, '.trial_used');
+    if (fs.existsSync(trialFlagPath)) {
+      fs.unlinkSync(trialFlagPath);
+      console.log('✅ Trial flag deleted');
+    }
+    
+    return { success: true, message: 'Reset completed!' };
+  } catch (error) {
+    console.error('❌ Reset error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('quit-app', async () => {
+  app.quit();
+  return { success: true };
+});
+
+// ============================================
+// 🔹 IPC HANDLERS - حفظ وتحميل التفعيل المشفر
+// ============================================
+ipcMain.handle('save-activation', async (event, activationData) => {
+  try {
+    const activationPath = path.join(app.getPath('userData'), '.activation');
+    const encryptedData = encrypt(JSON.stringify(activationData));
+    fs.writeFileSync(activationPath, encryptedData);
+    console.log('✅ Activation saved (encrypted)');
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Save activation error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('load-activation', async () => {
+  try {
+    const activationPath = path.join(app.getPath('userData'), '.activation');
+    
+    if (!fs.existsSync(activationPath)) {
+      return { success: false, data: null };
+    }
+    
+    const encryptedData = fs.readFileSync(activationPath, 'utf8');
+    const decryptedData = decrypt(encryptedData);
+    const activationData = JSON.parse(decryptedData);
+    
+    console.log('✅ Activation loaded (decrypted)');
+    return { success: true, data: activationData };
+  } catch (error) {
+    console.error('❌ Load activation error:', error);
+    return { success: false, data: null };
+  }
+});
+
+ipcMain.handle('delete-activation', async () => {
+  try {
+    const activationPath = path.join(app.getPath('userData'), '.activation');
+    if (fs.existsSync(activationPath)) {
+      fs.unlinkSync(activationPath);
+    }
+    console.log('✅ Activation deleted');
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ============================================
 // 🔹 IPC HANDLERS - Products
 // ============================================
-
 ipcMain.handle('get-products', async () => {
   const result = db.exec('SELECT * FROM products');
   return resultToArray(result);
@@ -329,7 +457,6 @@ ipcMain.handle('delete-product', async (event, id) => {
 // ============================================
 // 🔹 IPC HANDLERS - Categories
 // ============================================
-
 ipcMain.handle('get-categories', async () => {
   try {
     const result = db.exec(`
@@ -384,7 +511,6 @@ ipcMain.handle('delete-category', async (event, id) => {
 // ============================================
 // 🔹 IPC HANDLERS - Marques
 // ============================================
-
 ipcMain.handle('get-marques', async () => {
   try {
     const result = db.exec(`
@@ -439,7 +565,6 @@ ipcMain.handle('delete-marque', async (event, id) => {
 // ============================================
 // 🔹 IPC HANDLERS - Unites
 // ============================================
-
 ipcMain.handle('get-unites', async () => {
   try {
     const result = db.exec(`
@@ -494,7 +619,6 @@ ipcMain.handle('delete-unite', async (event, id) => {
 // ============================================
 // 🔹 IPC HANDLERS - Tailles
 // ============================================
-
 ipcMain.handle('get-tailles', async () => {
   try {
     const result = db.exec(`
@@ -549,7 +673,6 @@ ipcMain.handle('delete-taille', async (event, id) => {
 // ============================================
 // 🔹 IPC HANDLERS - Lost Products
 // ============================================
-
 ipcMain.handle('get-lost-products', async () => {
   try {
     const result = db.exec('SELECT * FROM lost_products ORDER BY date DESC');
@@ -588,7 +711,6 @@ ipcMain.handle('delete-lost-product', async (event, id) => {
 // ============================================
 // 🔹 IPC HANDLERS - Stock Corrections
 // ============================================
-
 ipcMain.handle('get-stock-corrections', async () => {
   try {
     const result = db.exec('SELECT * FROM stock_corrections ORDER BY date DESC');
@@ -638,7 +760,6 @@ ipcMain.handle('delete-stock-correction', async (event, id) => {
 // ============================================
 // 🔹 IPC HANDLERS - Settings
 // ============================================
-
 ipcMain.handle('get-settings', async () => {
   try {
     const result = db.exec('SELECT * FROM settings LIMIT 1');
@@ -666,39 +787,29 @@ ipcMain.handle('update-settings', async (event, settings) => {
 });
 
 // ============================================
-// 🔹 IPC HANDLER - النسخ الاحتياطي المُحسّن ✅✅✅
+// 🔹 IPC HANDLER - النسخ الاحتياطي
 // ============================================
 ipcMain.handle('backup-database', async () => {
   try {
     const appDataPath = app.getPath('userData');
     const dbPath = path.join(appDataPath, 'products.db');
-    
-    // إنشاء مجلد النسخ الاحتياطية
     const backupDir = path.join(app.getPath('documents'), 'HANOUTY_Backups');
+    
     if (!fs.existsSync(backupDir)) {
       fs.mkdirSync(backupDir, { recursive: true });
     }
     
-    // اسم الملف مع التاريخ والوقت
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
     const backupPath = path.join(backupDir, `backup_${timestamp}.db`);
     
     if (fs.existsSync(dbPath)) {
-      // نسخ قاعدة البيانات
       fs.copyFileSync(dbPath, backupPath);
-      
-      // الحصول على حجم الملف
       const stats = fs.statSync(backupPath);
       const fileSizeInMB = (stats.size / (1024 * 1024)).toFixed(2);
-      
-      // الحصول على عدد المنتجات
       const result = db.exec('SELECT COUNT(*) as count FROM products');
       const productCount = result[0]?.values[0][0] || 0;
       
       console.log('✅ Backup created:', backupPath);
-      console.log('📊 Size:', fileSizeInMB, 'MB');
-      console.log('📦 Products:', productCount);
-      
       return { 
         success: true, 
         path: backupPath,
@@ -716,29 +827,20 @@ ipcMain.handle('backup-database', async () => {
 });
 
 // ============================================
-// 🔹 IPC HANDLER - التحقق من التحديثات (نظام حقيقي) ✅✅✅
+// 🔹 IPC HANDLER - التحديثات
 // ============================================
 ipcMain.handle('check-for-updates', async () => {
   try {
     const currentVersion = '1.0.0';
+const updateUrl = 'https://raw.githubusercontent.com/ilyes27dz/hanouty-pos-/main/update.json';
     
-    // ✅ يمكنك تغيير هذا الرابط لملف JSON على سيرفرك أو GitHub
-    const updateUrl = 'https://raw.githubusercontent.com/ilyes27dz/hanouty-pos-/main/update.json';
-    
-    // محاولة جلب معلومات التحديث
     return new Promise((resolve) => {
       https.get(updateUrl, (res) => {
         let data = '';
-        
-        res.on('data', (chunk) => {
-          data += chunk;
-        });
-        
+        res.on('data', (chunk) => { data += chunk; });
         res.on('end', () => {
           try {
             const updateInfo = JSON.parse(data);
-            
-            // مقارنة الإصدارات
             if (updateInfo.version && updateInfo.version !== currentVersion) {
               console.log('✅ Update available:', updateInfo.version);
               resolve({
@@ -751,31 +853,21 @@ ipcMain.handle('check-for-updates', async () => {
                 changes: updateInfo.changes || []
               });
             } else {
-              console.log('✅ No update available');
-              resolve({
-                available: false,
-                version: currentVersion
-              });
+              resolve({ available: false, version: currentVersion });
             }
           } catch (error) {
-            console.error('❌ Parse update error:', error);
             resolve({ available: false, version: currentVersion });
           }
         });
       }).on('error', (error) => {
-        console.error('❌ Update check error:', error);
         resolve({ available: false, version: currentVersion });
       });
     });
   } catch (error) {
-    console.error('❌ Update check error:', error);
     return { available: false, error: error.message };
   }
 });
 
-// ============================================
-// 🔹 IPC HANDLER - تنزيل التحديث ✅
-// ============================================
 ipcMain.handle('download-update', async (event, downloadUrl) => {
   try {
     if (downloadUrl) {
@@ -793,14 +885,19 @@ ipcMain.handle('download-update', async (event, downloadUrl) => {
 // ============================================
 // 🔹 Window Controls
 // ============================================
-
-ipcMain.on('maximize-window', () => {
+// ============================================
+// 🔹 Window Controls
+// ============================================
+ipcMain.handle('maximize-window', async () => {
   if (mainWindow) {
-    mainWindow.setSize(1280, 800);
+    mainWindow.setSize(1500, 1000);
     mainWindow.center();
     mainWindow.setResizable(true);
   }
+  return { success: true };
 });
+
+
 
 ipcMain.on('minimize-window', () => {
   if (mainWindow) {
@@ -824,11 +921,47 @@ ipcMain.on('logout', () => {
 });
 
 // ============================================
-// 🔹 App Lifecycle
+// 🔹 App Lifecycle مع التحقق من التفعيل
 // ============================================
-
 app.on('ready', async () => {
   await initDatabase();
+  
+  // ✅ التحقق من التفعيل عند البدء
+  const activationPath = path.join(app.getPath('userData'), '.activation');
+  if (fs.existsSync(activationPath)) {
+    try {
+      const encryptedData = fs.readFileSync(activationPath, 'utf8');
+      const decryptedData = decrypt(encryptedData);
+      const activationData = JSON.parse(decryptedData);
+      
+      // التحقق من Machine ID
+      const cpus = os.cpus();
+      const totalMem = os.totalmem();
+      const platform = os.platform();
+      const arch = os.arch();
+      const rawId = `${platform}-${arch}-${totalMem}-${cpus[0]?.model || 'unknown'}`;
+      let hash = 0;
+      for (let i = 0; i < rawId.length; i++) {
+        const char = rawId.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+      }
+      const machineId = Math.abs(hash).toString().substring(0, 10);
+      
+      if (activationData.machineId !== machineId) {
+        console.log('⚠️ Invalid activation (wrong machine), removing...');
+        fs.unlinkSync(activationPath);
+      } else {
+        console.log('✅ Valid activation found');
+      }
+    } catch (error) {
+      console.error('⚠️ Activation check error:', error);
+      try {
+        fs.unlinkSync(activationPath);
+      } catch {}
+    }
+  }
+  
   createWindow();
 });
 
@@ -839,6 +972,7 @@ function createWindow() {
     center: true,
     resizable: false,
     title: 'Hanouty DZ',
+    icon: path.join(__dirname, '../../public/icons/favicon.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,

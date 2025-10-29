@@ -1,13 +1,14 @@
-// src/renderer/Activation.tsx - ✅ النسخة النهائية الكاملة مع التكبير التلقائي
+// src/renderer/Activation.tsx - ✅ النسخة النهائية المُحسّنة
 import React, { useState, useEffect } from 'react';
-import { Box, Button, Typography, Paper, Chip, Divider, IconButton, Tooltip, Alert, Dialog, TextField } from '@mui/material';
 import { 
-  Computer as ComputerIcon, 
-  VpnKey as KeyIcon,
-  CheckCircle as CheckIcon,
-  Facebook as FacebookIcon,
-  WhatsApp as WhatsAppIcon,
+  Box, Button, Typography, Paper, TextField, IconButton, CircularProgress,
+  Dialog, DialogTitle, DialogContent, DialogActions 
+} from '@mui/material';
+import { 
   ContentCopy as CopyIcon,
+  Instagram as InstagramIcon,
+  WhatsApp as WhatsAppIcon,
+  Facebook as FacebookIcon,
 } from '@mui/icons-material';
 
 interface ActivationProps {
@@ -17,200 +18,144 @@ interface ActivationProps {
 export default function Activation({ onActivate }: ActivationProps) {
   const [machineId, setMachineId] = useState('');
   const [computerName, setComputerName] = useState('');
-  const [showActivationDialog, setShowActivationDialog] = useState(false);
   const [activationCode, setActivationCode] = useState('');
-  const [trialDisabled, setTrialDisabled] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [alertDialog, setAlertDialog] = useState({ open: false, message: '' });
+
+  // دالة لعرض رسائل واضحة
+  const showMessage = (msg: string) => {
+    setAlertDialog({ open: true, message: msg });
+  };
 
   useEffect(() => {
     const getMachineInfo = async () => {
-      // ✅ استخدم window.electron
       if (typeof window !== 'undefined' && (window as any).electron) {
         try {
           const result = await (window as any).electron.getMachineInfo();
-          
-          console.log('📡 Machine Info Response:', result);
-          
           if (result && result.success) {
             setComputerName(result.computerName);
             setMachineId(result.machineId);
-            console.log('✅ Machine Info Set:', result.computerName, result.machineId);
-          } else {
-            console.warn('⚠️ Machine Info Failed, using fallback');
-            setComputerName('Unknown');
-            setMachineId('0000000000');
           }
         } catch (error) {
-          console.error('❌ Error getting machine info:', error);
-          setComputerName('Unknown');
-          setMachineId('0000000000');
-        }
-      } else {
-        console.error('❌ window.electron not available!');
-        setComputerName('TEST-COMPUTER');
-        setMachineId('1234567890');
-      }
-    };
-
-    const checkTrialStatus = async () => {
-      if (typeof window !== 'undefined' && (window as any).electron) {
-        try {
-          const trialUsed = await (window as any).electron.checkTrialUsed();
-          
-          if (trialUsed) {
-            setTrialDisabled(true);
-            console.log('⚠️ Trial already used');
-          }
-        } catch (error) {
-          console.error('❌ Check trial error:', error);
+          console.error('Error getting machine info:', error);
         }
       }
     };
 
     getMachineInfo();
-    checkTrialStatus();
   }, []);
 
-  const verifyActivationCode = async (machineId: string, activationCode: string): Promise<boolean> => {
-    const SECRET_KEY = "HANOUTY_DZ_2025_SECRET_KEY_DO_NOT_SHARE";
-    
-    const cleanCode = activationCode.replace(/HK-|-/g, '').toUpperCase();
-    
-    const combined = `${machineId}-${SECRET_KEY}`;
-    const encoder = new TextEncoder();
-    const data = encoder.encode(combined);
-    
+  const copyToClipboard = async (text: string) => {
     try {
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      const expectedCode = hashHex.substring(0, 16).toUpperCase();
-      
-      return cleanCode === expectedCode;
+      await navigator.clipboard.writeText(text);
+      showMessage('✅ تم النسخ!');
     } catch (error) {
-      console.error('Error verifying activation code:', error);
-      return false;
-    }
-  };
-
-  const verifyTrialCode = async (machineId: string, activationCode: string): Promise<number | false> => {
-    const SECRET_KEY = "TRIAL_KEY_2025_HANOUTY";
-    
-    if (!activationCode.startsWith('HT-')) return false;
-    
-    const parts = activationCode.split('-');
-    if (parts.length < 5) return false;
-    
-    const daysStr = parts[1];
-    if (!daysStr.endsWith('D')) return false;
-    
-    const days = parseInt(daysStr.replace('D', ''), 10);
-    if (isNaN(days) || days <= 0) return false;
-    
-    const cleanCode = `${parts[2]}${parts[3]}${parts[4]}`.toUpperCase();
-    
-    const combined = `${machineId}-${days}-${SECRET_KEY}`;
-    const encoder = new TextEncoder();
-    const data = encoder.encode(combined);
-    
-    try {
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      const expectedCode = hashHex.substring(0, 12).toUpperCase();
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.top = '0';
+      textArea.style.left = '0';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
       
-      return cleanCode === expectedCode ? days : false;
-    } catch (error) {
-      console.error('Error verifying trial code:', error);
-      return false;
+      try {
+        document.execCommand('copy');
+        showMessage('✅ تم النسخ!');
+      } catch (err) {
+        showMessage('❌ فشل النسخ');
+      }
+      
+      document.body.removeChild(textArea);
     }
   };
 
   const handleActivateWithCode = async () => {
     if (!activationCode.trim()) {
-      alert('⚠️ يرجى إدخال كود التفعيل!');
+      showMessage('⚠️ يرجى إدخال كود التفعيل!');
       return;
     }
 
-    // فحص إذا كان كود تجريبي (HT-)
-    if (activationCode.startsWith('HT-')) {
-      const days = await verifyTrialCode(machineId, activationCode);
-      
-      if (days !== false && typeof window !== 'undefined' && (window as any).electron) {
-        try {
-          // فحص إذا تم استخدام التجربة
-          const trialUsed = await (window as any).electron.checkTrialUsed();
-          
-          if (trialUsed) {
-            alert('⚠️ لقد استخدمت النسخة التجريبية من قبل!\n\nيرجى شراء النسخة الكاملة.');
-            return;
+    setLoading(true);
+
+    try {
+      const response = await fetch('https://activation-tool.vercel.app/api/codes/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          activationCode: activationCode.toUpperCase(),
+          machineId: machineId
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.valid) {
+        const activationData = {
+          isActivated: true,
+          activationCode: activationCode,
+          activationDate: new Date().toISOString(),
+          machineId: machineId,
+          type: data.type,
+          ...(data.type === 'trial' && {
+            isTrial: true,
+            trialDays: data.trialDays,
+            trialStartDate: new Date().toISOString()
+          }),
+          ...(data.type === 'full' && {
+            activationType: 'full',
+            isTrial: false
+          })
+        };
+
+        if (data.type === 'trial') {
+          if (typeof window !== 'undefined' && (window as any).electron) {
+            const trialUsed = await (window as any).electron.checkTrialUsed();
+            
+            if (trialUsed) {
+              showMessage('⚠️ لقد استخدمت النسخة التجريبية من قبل على هذا الجهاز!\n\nيرجى شراء النسخة الكاملة.');
+              setLoading(false);
+              return;
+            }
+
+            await (window as any).electron.markTrialUsed();
           }
-          
-          // تفعيل تجريبي
-          localStorage.setItem('trialStartDate', new Date().toISOString());
-          localStorage.setItem('isTrial', 'true');
-          localStorage.setItem('trialDays', days.toString());
-          localStorage.setItem('isActivated', 'true');
-          
-          // حفظ علامة دائمة
-          await (window as any).electron.markTrialUsed();
-          
-          setShowActivationDialog(false);
-          
-          // ✅ تكبير النافذة فوراً
-          console.log('🎉 Trial activation successful, maximizing window...');
-          if ((window as any).electron && (window as any).electron.maximizeWindow) {
-            (window as any).electron.maximizeWindow();
-          }
-          
-          // ✅ رسالة النجاح
-          setTimeout(() => {
-            alert(`✅ تم تفعيل النسخة التجريبية لمدة ${days} أيام!`);
-            // ✅ الانتقال للداشبورد
-            onActivate();
-          }, 200);
-          
-        } catch (error) {
-          console.error('Trial activation error:', error);
-          alert('❌ حدث خطأ أثناء التفعيل!');
         }
+
+        if ((window as any).electron && (window as any).electron.saveActivation) {
+          await (window as any).electron.saveActivation(activationData);
+        }
+        
+        Object.keys(activationData).forEach(key => {
+          localStorage.setItem(key, String(activationData[key as keyof typeof activationData]));
+        });
+        
+        if ((window as any).electron && (window as any).electron.maximizeWindow) {
+          (window as any).electron.maximizeWindow();
+        }
+        
+        setTimeout(() => {
+          showMessage(`✅ تم التفعيل بنجاح!\n\n${data.type === 'trial' ? `النسخة التجريبية: ${data.trialDays} أيام` : 'النسخة الكاملة'}`);
+          
+          setTimeout(() => {
+            onActivate();
+          }, 1500);
+        }, 200);
+        
+      } else if (data.deactivated) {
+        showMessage('⚠️ تم إيقاف هذا التفعيل من قبل المطور!\n\nيرجى التواصل مع الدعم الفني.');
+        setLoading(false);
+        return;
       } else {
-        alert('❌ كود التفعيل التجريبي غير صحيح!');
+        showMessage(`❌ ${data.message || 'الكود غير صحيح أو منتهي الصلاحية'}`);
       }
-      return;
+    } catch (error) {
+      console.error('Activation error:', error);
+      showMessage('❌ خطأ في الاتصال بالخادم. تحقق من الإنترنت.');
+    } finally {
+      setLoading(false);
     }
-
-    // كود كامل (HK-)
-    const isValid = await verifyActivationCode(machineId, activationCode);
-    
-    if (isValid) {
-      localStorage.setItem('isActivated', 'true');
-      localStorage.setItem('activationType', 'full');
-      localStorage.removeItem('isTrial');
-      localStorage.removeItem('trialStartDate');
-      localStorage.removeItem('trialDays');
-      setShowActivationDialog(false);
-      
-      // ✅ تكبير النافذة فوراً
-      console.log('🎉 Full activation successful, maximizing window...');
-      if ((window as any).electron && (window as any).electron.maximizeWindow) {
-        (window as any).electron.maximizeWindow();
-      }
-      
-      // ✅ رسالة النجاح
-      setTimeout(() => {
-        alert('✅ تم تفعيل النسخة الكاملة بنجاح!');
-        // ✅ الانتقال للداشبورد
-        onActivate();
-      }, 200);
-      
-    } else {
-      alert('❌ كود التفعيل غير صحيح!');
-    }
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    alert('✅ تم النسخ!');
   };
 
   return (
@@ -221,287 +166,243 @@ export default function Activation({ onActivate }: ActivationProps) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)',
-        position: 'relative',
+        bgcolor: '#f5f5f5',
       }}
     >
       <Paper
-        elevation={24}
+        elevation={3}
         sx={{
-          width: 520,
-          bgcolor: 'rgba(18, 30, 40, 0.95)',
-          borderRadius: 4,
+          width: 500,
+          bgcolor: 'white',
+          borderRadius: 3,
+          border: '3px solid #FF6B35',
           p: 4,
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 152, 0, 0.2)',
-          maxHeight: '90vh',
-          overflowY: 'auto',
+          textAlign: 'center',
         }}
       >
-        <Box sx={{ textAlign: 'center', mb: 3 }}>
-          <Box
-            sx={{
-              width: 70,
-              height: 70,
-              mx: 'auto',
-              mb: 2,
-              borderRadius: '18px',
-              background: 'linear-gradient(135deg, #FF9800 0%, #FF6F00 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 8px 20px rgba(255, 152, 0, 0.4)',
-            }}
-          >
-            <Typography sx={{ fontSize: 42, fontWeight: 900, color: '#fff' }}>🛒</Typography>
-          </Box>
-          
-          <Typography variant="h5" sx={{ color: '#FFD54F', fontWeight: 900, fontFamily: 'Cairo, Arial', mb: 1 }}>
-            تفعيل HANOUTY DZ
-          </Typography>
-          
-          <Chip
-            icon={<CheckIcon />}
-            label="تم تسجيل الدخول بنجاح"
-            sx={{ 
-              fontFamily: 'Cairo, Arial', 
-              fontWeight: 600,
-              bgcolor: 'rgba(76, 175, 80, 0.2)',
-              color: '#81C784',
-              border: '1px solid rgba(76, 175, 80, 0.3)',
-            }}
-            size="small"
-          />
+        <Box
+          sx={{
+            width: 100,
+            height: 100,
+            mx: 'auto',
+            mb: 2,
+            borderRadius: '25px',
+            bgcolor: '#FF6B35',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: 3,
+          }}
+        >
+          <Typography sx={{ fontSize: 60, color: 'white' }}>🛒</Typography>
         </Box>
 
-        <Divider sx={{ my: 3, borderColor: 'rgba(255, 152, 0, 0.2)' }} />
+        <Typography
+          variant="h4"
+          sx={{
+            color: '#FF6B35',
+            fontWeight: 900,
+            fontFamily: 'Cairo, Arial',
+            mb: 1,
+          }}
+        >
+          HANOUTY DZ
+        </Typography>
 
-        <Box sx={{ mb: 3, p: 2.5, bgcolor: 'rgba(255, 152, 0, 0.08)', borderRadius: 2, border: '1px solid rgba(255, 152, 0, 0.3)' }}>
-          <Typography sx={{ color: '#FFD54F', fontSize: '0.95rem', fontFamily: 'Cairo, Arial', fontWeight: 700, mb: 2 }}>
-            📋 معلومات الجهاز
+        <Typography
+          sx={{
+            color: '#666',
+            fontSize: '0.9rem',
+            mb: 3,
+          }}
+        >
+          نسخة 1.0 - تفعيل البرنامج
+        </Typography>
+
+        <Box
+          sx={{
+            bgcolor: '#f5f5f5',
+            borderRadius: 2,
+            p: 2,
+            mb: 2,
+            textAlign: 'right',
+          }}
+        >
+          <Typography
+            sx={{
+              color: '#FF6B35',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              mb: 1,
+            }}
+          >
+            💻 اسم الجهاز: <span style={{ color: '#666' }}>{computerName || 'جاري التحميل...'}</span>
           </Typography>
-          
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-            <ComputerIcon sx={{ color: '#FF9800', fontSize: 20 }} />
-            <Typography sx={{ color: '#B0BEC5', fontSize: '0.85rem', fontFamily: 'Cairo, Arial' }}>
-              <strong style={{ color: '#FFD54F' }}>اسم الجهاز:</strong> {computerName || 'جاري التحميل...'}
-            </Typography>
-          </Box>
-          
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <KeyIcon sx={{ color: '#FF9800', fontSize: 20 }} />
-            <Typography sx={{ color: '#B0BEC5', fontSize: '0.85rem', fontFamily: 'Cairo, Arial', flex: 1 }}>
-              <strong style={{ color: '#FFD54F' }}>رقم الجهاز:</strong> {machineId || 'جاري التحميل...'}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography
+              sx={{
+                color: '#FF6B35',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+              }}
+            >
+              🔑 رقم الجهاز: <span style={{ color: '#666', fontFamily: 'monospace' }}>{machineId || 'جاري التحميل...'}</span>
             </Typography>
             {machineId && (
-              <IconButton 
-                size="small" 
+              <IconButton
+                size="small"
                 onClick={() => copyToClipboard(machineId)}
-                sx={{ 
-                  bgcolor: 'rgba(255, 152, 0, 0.2)',
-                  '&:hover': { bgcolor: 'rgba(255, 152, 0, 0.3)' },
-                }}
+                sx={{ bgcolor: '#FF6B35', color: 'white', '&:hover': { bgcolor: '#E55A2B' } }}
               >
-                <CopyIcon sx={{ fontSize: 16, color: '#FF9800' }} />
+                <CopyIcon sx={{ fontSize: 16 }} />
               </IconButton>
             )}
           </Box>
         </Box>
 
-        <Alert 
-          severity="info" 
-          sx={{ 
-            mb: 3, 
-            fontFamily: 'Cairo, Arial', 
-            fontSize: '0.85rem',
-            bgcolor: 'rgba(33, 150, 243, 0.1)',
-            color: '#64B5F6',
-            '& .MuiAlert-icon': { color: '#64B5F6' },
-          }}
-        >
-          💡 اطلب كود التفعيل من المطور بإرسال <strong>رقم الجهاز</strong>
-        </Alert>
-
-        <Paper
-          elevation={3}
+        <Box
           sx={{
-            p: 2.5,
-            bgcolor: 'rgba(76, 175, 80, 0.08)',
-            border: '2px solid rgba(76, 175, 80, 0.3)',
+            bgcolor: '#FFF3E0',
+            border: '2px dashed #FF9800',
             borderRadius: 2,
-            mb: 3,
+            p: 2,
+            mb: 2,
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-            <CheckIcon sx={{ color: '#4CAF50', fontSize: 28, mr: 1 }} />
-            <Typography sx={{ color: '#4CAF50', fontWeight: 900, fontSize: '1.1rem', fontFamily: 'Cairo, Arial' }}>
-              تفعيل البرنامج
-            </Typography>
-          </Box>
-          
-          <Typography sx={{ color: '#B0BEC5', fontSize: '0.85rem', fontFamily: 'Cairo, Arial', mb: 2 }}>
-            ✅ أرسل <strong style={{ color: '#FFD54F' }}>رقم الجهاز</strong> للمطور<br />
-            ✅ اختر النسخة: <strong style={{ color: '#FFC107' }}>تجريبية (5/7/10 أيام)</strong> أو <strong style={{ color: '#4CAF50' }}>كاملة (دائمة)</strong><br />
-            ✅ سيعطيك المطور كود التفعيل<br />
-            ✅ أدخل الكود هنا وفعّل البرنامج
-          </Typography>
-          
-          <Button
-            fullWidth
-            variant="contained"
-            onClick={() => setShowActivationDialog(true)}
-            disabled={!machineId}
+          <Typography
             sx={{
-              bgcolor: '#4CAF50',
-              py: 1.2,
-              fontSize: '0.95rem',
-              fontWeight: 700,
-              fontFamily: 'Cairo, Arial',
-              '&:hover': { 
-                bgcolor: '#43A047',
-                boxShadow: '0 6px 20px rgba(76, 175, 80, 0.4)',
-              },
-              '&:disabled': {
-                bgcolor: '#9E9E9E',
-                color: '#BDBDBD',
-              }
+              color: '#F57C00',
+              fontSize: '0.85rem',
+              fontWeight: 600,
             }}
           >
-            🔑 إدخال كود التفعيل
-          </Button>
-        </Paper>
-
-        {trialDisabled && (
-          <Alert 
-            severity="warning" 
-            sx={{ 
-              mb: 2, 
-              fontFamily: 'Cairo, Arial', 
-              fontSize: '0.8rem',
-              bgcolor: 'rgba(255, 152, 0, 0.1)',
-              color: '#FFB74D',
-            }}
-          >
-            ⚠️ لقد استخدمت النسخة التجريبية من قبل على هذا الجهاز
-          </Alert>
-        )}
-
-        <Divider sx={{ my: 3, borderColor: 'rgba(255, 152, 0, 0.2)' }} />
-
-        <Box sx={{ mb: 2 }}>
-          <Typography sx={{ color: '#FFD54F', fontSize: '0.9rem', fontFamily: 'Cairo, Arial', fontWeight: 700, mb: 2, textAlign: 'center' }}>
-            📞 للتواصل والدعم الفني
+            💡 أرسل رقم الجهاز للمطور للحصول على كود التفعيل
           </Typography>
-          
-          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mb: 2 }}>
-            <Tooltip title="واتساب: +213XXXXXXXXX">
-              <IconButton 
-                onClick={() => window.open('https://wa.me/213XXXXXXXXX', '_blank')} 
-                sx={{ 
-                  bgcolor: 'rgba(37, 211, 102, 0.2)', 
-                  '&:hover': { 
-                    bgcolor: 'rgba(37, 211, 102, 0.3)',
-                    transform: 'scale(1.1)',
-                    transition: 'all 0.3s',
-                  },
-                  width: 48,
-                  height: 48,
-                }}
-              >
-                <WhatsAppIcon sx={{ color: '#25D366' }} />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="فيسبوك">
-              <IconButton 
-                onClick={() => window.open('https://facebook.com/yourpage', '_blank')} 
-                sx={{ 
-                  bgcolor: 'rgba(66, 103, 178, 0.2)', 
-                  '&:hover': { 
-                    bgcolor: 'rgba(66, 103, 178, 0.3)',
-                    transform: 'scale(1.1)',
-                    transition: 'all 0.3s',
-                  },
-                  width: 48,
-                  height: 48,
-                }}
-              >
-                <FacebookIcon sx={{ color: '#4267B2' }} />
-              </IconButton>
-            </Tooltip>
-          </Box>
         </Box>
 
-        <Typography sx={{ textAlign: 'center', color: '#78909C', fontSize: '0.7rem', fontFamily: 'Cairo, Arial' }}>
-          © 2025 HANOUTY DZ - جميع الحقوق محفوظة
-        </Typography>
-      </Paper>
-
-      <Dialog
-        open={showActivationDialog}
-        onClose={() => setShowActivationDialog(false)}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{
-          sx: {
-            bgcolor: 'rgba(18, 30, 40, 0.98)',
-            borderRadius: 3,
-            p: 3,
-          }
-        }}
-      >
-        <Typography variant="h5" sx={{ color: '#FFD54F', fontWeight: 900, fontFamily: 'Cairo, Arial', mb: 2, textAlign: 'center' }}>
-          🔑 إدخال كود التفعيل
-        </Typography>
-        
-        <Typography sx={{ color: '#B0BEC5', fontSize: '0.85rem', fontFamily: 'Cairo, Arial', mb: 2, textAlign: 'center' }}>
-          أدخل الكود الذي حصلت عليه من المطور
-        </Typography>
-        
         <TextField
           fullWidth
-          placeholder="HK-XXXX-XXXX-XXXX-XXXX أو HT-5D-XXXX-XXXX-XXXX"
+          placeholder="HK-XXXX-XXXX-XXXX-XXXX"
           value={activationCode}
           onChange={(e) => setActivationCode(e.target.value.toUpperCase())}
+          disabled={loading}
           sx={{
             mb: 2,
             '& .MuiOutlinedInput-root': {
-              bgcolor: 'rgba(255, 152, 0, 0.08)',
-              color: '#FFD54F',
+              borderRadius: 2,
+              fontSize: '1rem',
               fontFamily: 'monospace',
-              fontSize: '1.1rem',
-              border: '1px solid rgba(255, 152, 0, 0.3)',
+              '& fieldset': {
+                borderColor: '#FF6B35',
+                borderWidth: 2,
+              },
+              '&:hover fieldset': {
+                borderColor: '#E55A2B',
+              },
+              '&.Mui-focused fieldset': {
+                borderColor: '#FF6B35',
+              },
             },
           }}
         />
-        
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button
-            fullWidth
-            variant="outlined"
-            onClick={() => setShowActivationDialog(false)}
-            sx={{
-              borderColor: '#78909C',
-              color: '#B0BEC5',
-              fontFamily: 'Cairo, Arial',
-            }}
-          >
-            إلغاء
-          </Button>
-          
-          <Button
-            fullWidth
-            variant="contained"
-            onClick={handleActivateWithCode}
-            sx={{
-              bgcolor: '#4CAF50',
-              fontFamily: 'Cairo, Arial',
-              '&:hover': { bgcolor: '#43A047' },
-            }}
-          >
-            ✅ تفعيل
-          </Button>
+
+        <Button
+          fullWidth
+          variant="contained"
+          onClick={handleActivateWithCode}
+          disabled={!activationCode.trim() || loading}
+          sx={{
+            bgcolor: '#FF6B35',
+            py: 1.5,
+            fontSize: '1rem',
+            fontWeight: 700,
+            fontFamily: 'Cairo, Arial',
+            borderRadius: 2,
+            mb: 2,
+            '&:hover': {
+              bgcolor: '#E55A2B',
+            },
+            '&:disabled': {
+              bgcolor: '#ccc',
+            },
+          }}
+        >
+          {loading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : '✅ تفعيل البرنامج'}
+        </Button>
+
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: 2,
+            mt: 3,
+            pt: 3,
+            borderTop: '1px solid #e0e0e0',
+          }}
+        >
+          <IconButton sx={{ bgcolor: '#f5f5f5' }}>
+            <InstagramIcon sx={{ color: '#E1306C' }} />
+          </IconButton>
+          <IconButton sx={{ bgcolor: '#f5f5f5' }}>
+            <WhatsAppIcon sx={{ color: '#25D366' }} />
+          </IconButton>
+          <IconButton sx={{ bgcolor: '#f5f5f5' }}>
+            <FacebookIcon sx={{ color: '#1877F2' }} />
+          </IconButton>
         </Box>
+
+        <Typography
+          sx={{
+            color: '#999',
+            fontSize: '0.75rem',
+            mt: 2,
+          }}
+        >
+          © HANOUTY DZ 2025 - جميع الحقوق محفوظة
+        </Typography>
+      </Paper>
+
+      {/* Dialog للرسائل */}
+      <Dialog 
+        open={alertDialog.open} 
+        onClose={() => setAlertDialog({ open: false, message: '' })}
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            minWidth: 300,
+          }
+        }}
+      >
+        <DialogTitle sx={{ textAlign: 'center', fontWeight: 700, color: '#FF6B35' }}>
+          إشعار
+        </DialogTitle>
+        <DialogContent>
+          <Typography 
+            sx={{ 
+              whiteSpace: 'pre-line', 
+              textAlign: 'center',
+              fontSize: '1rem',
+              lineHeight: 1.8,
+            }}
+          >
+            {alertDialog.message}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
+          <Button 
+            onClick={() => setAlertDialog({ open: false, message: '' })} 
+            variant="contained"
+            sx={{
+              bgcolor: '#FF6B35',
+              px: 4,
+              '&:hover': {
+                bgcolor: '#E55A2B',
+              }
+            }}
+          >
+            حسناً
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );

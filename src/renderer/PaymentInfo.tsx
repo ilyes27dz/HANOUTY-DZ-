@@ -259,7 +259,7 @@ export default function PaymentInfo({ machineId, computerName, onClose }: Paymen
                   },
                 }}
               >
-                07.74.36.64.70
+                05.42.03.80.84
               </Button>
             </Box>
 
@@ -283,7 +283,7 @@ export default function PaymentInfo({ machineId, computerName, onClose }: Paymen
                   },
                 }}
               >
-                YourEmail@
+                ilyes.negh@gmail.com
               </Button>
             </Box>
           </Box>

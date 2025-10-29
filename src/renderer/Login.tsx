@@ -1,4 +1,4 @@
-// src/renderer/Login.tsx - ✅ النسخة النهائية الكاملة
+// src/renderer/Login.tsx - ✅ النسخة النهائية مع Dialog
 import React, { useState, useEffect, useRef } from 'react';
 import { Box, Button, TextField, Typography, IconButton, Tooltip, Paper, Tabs, Tab, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { 
@@ -12,7 +12,8 @@ import {
   Language as LanguageIcon,
   Refresh as RefreshIcon,
   CheckCircle as CheckIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  Warning as WarningIcon
 } from '@mui/icons-material';
 
 interface LoginProps {
@@ -33,6 +34,7 @@ export default function Login({ onLogin }: LoginProps) {
     message: string;
     icon: 'success' | 'info' | 'warning';
     confirmText: string;
+    cancelText?: string;
     onConfirm?: () => void;
   }>({
     title: '',
@@ -41,7 +43,6 @@ export default function Login({ onLogin }: LoginProps) {
     confirmText: 'OK',
   });
   
-  // ✅ Focus عند Mount
   useEffect(() => {
     const focusInput = () => {
       if (loginMode === 'credentials' && usernameInputRef.current) {
@@ -56,7 +57,6 @@ export default function Login({ onLogin }: LoginProps) {
     return () => timers.forEach(clearTimeout);
   }, [loginMode]);
 
-  // ✅ Focus عند رجوع للنافذة
   useEffect(() => {
     const handleFocus = () => {
       if (loginMode === 'credentials' && usernameInputRef.current) {
@@ -89,7 +89,6 @@ export default function Login({ onLogin }: LoginProps) {
     };
   }, [loginMode]);
 
-  // ✅ استمع لحدث Logout
   useEffect(() => {
     if (typeof window !== 'undefined' && (window as any).require) {
       try {
@@ -135,6 +134,10 @@ export default function Login({ onLogin }: LoginProps) {
       updateNotAvailable: '✅ أنت تستخدم أحدث إصدار!\n\nالإصدار الحالي: 1.0.0',
       exitTitle: 'تأكيد الخروج',
       exitMessage: 'هل أنت متأكد من الخروج من البرنامج؟\n\nسيتم حفظ جميع بياناتك تلقائياً.',
+      loginErrorTitle: 'خطأ في تسجيل الدخول',
+      loginError: '❌ اسم المستخدم أو كلمة المرور غير صحيحة!\n\nاسم المستخدم: admin\nكلمة المرور: 123456',
+      pinErrorTitle: 'خطأ في رمز PIN',
+      pinError: '❌ رمز PIN غير صحيح!',
       confirmBtn: 'تأكيد',
       cancelBtn: 'إلغاء',
       okBtn: 'حسناً',
@@ -158,6 +161,10 @@ export default function Login({ onLogin }: LoginProps) {
       updateNotAvailable: '✅ Vous utilisez la dernière version!\n\nVersion actuelle: 1.0.0',
       exitTitle: 'Confirmation de sortie',
       exitMessage: 'Êtes-vous sûr de vouloir quitter?\n\nToutes vos données seront sauvegardées.',
+      loginErrorTitle: 'Erreur de connexion',
+      loginError: '❌ Nom d\'utilisateur ou mot de passe incorrect!\n\nNom d\'utilisateur: admin\nMot de passe: 123456',
+      pinErrorTitle: 'Erreur de code PIN',
+      pinError: '❌ Code PIN incorrect!',
       confirmBtn: 'Confirmer',
       cancelBtn: 'Annuler',
       okBtn: 'OK',
@@ -197,10 +204,12 @@ export default function Login({ onLogin }: LoginProps) {
     if (username === 'admin' && password === '123456') {
       onLogin();
     } else {
-      alert(lang === 'ar' 
-        ? '❌ اسم المستخدم أو كلمة المرور غير صحيحة!\n\nاسم المستخدم: admin\nكلمة المرور: 123456'
-        : '❌ Nom d\'utilisateur ou mot de passe incorrect!\n\nNom d\'utilisateur: admin\nMot de passe: 123456'
-      );
+      showDialog({
+        title: t.loginErrorTitle,
+        message: t.loginError,
+        icon: 'warning',
+        confirmText: t.okBtn,
+      });
     }
   };
 
@@ -210,7 +219,12 @@ export default function Login({ onLogin }: LoginProps) {
     if (pin === savedPin) {
       onLogin();
     } else {
-      alert(lang === 'ar' ? '❌ رمز PIN غير صحيح!' : '❌ Code PIN incorrect!');
+      showDialog({
+        title: t.pinErrorTitle,
+        message: t.pinError,
+        icon: 'warning',
+        confirmText: t.okBtn,
+      });
       setPin('');
     }
   };
@@ -229,10 +243,20 @@ export default function Login({ onLogin }: LoginProps) {
             confirmText: t.okBtn,
           });
         } else {
-          alert(t.backupError);
+          showDialog({
+            title: t.backupTitle,
+            message: t.backupError,
+            icon: 'warning',
+            confirmText: t.okBtn,
+          });
         }
       } catch (error) {
-        alert(t.backupError);
+        showDialog({
+          title: t.backupTitle,
+          message: t.backupError,
+          icon: 'warning',
+          confirmText: t.okBtn,
+        });
       }
     }
   };
@@ -258,6 +282,7 @@ export default function Login({ onLogin }: LoginProps) {
             message: t.updateAvailable.replace('{version}', result.version),
             icon: 'success',
             confirmText: t.confirmBtn,
+            cancelText: t.cancelBtn,
             onConfirm: () => {
               ipcRenderer.invoke('download-update', result.downloadUrl);
             },
@@ -282,6 +307,7 @@ export default function Login({ onLogin }: LoginProps) {
       message: t.exitMessage,
       icon: 'warning',
       confirmText: t.confirmBtn,
+      cancelText: t.cancelBtn,
       onConfirm: () => {
         window.close();
       },
@@ -313,7 +339,7 @@ export default function Login({ onLogin }: LoginProps) {
       case 'success':
         return <CheckIcon sx={{ fontSize: 60, color: '#4CAF50' }} />;
       case 'warning':
-        return <InfoIcon sx={{ fontSize: 60, color: '#FF9800' }} />;
+        return <WarningIcon sx={{ fontSize: 60, color: '#FF9800' }} />;
       default:
         return <InfoIcon sx={{ fontSize: 60, color: '#2196F3' }} />;
     }
@@ -450,9 +476,10 @@ export default function Login({ onLogin }: LoginProps) {
         </Tooltip>
       </Box>
 
+      {/* Dialog Component */}
       <Dialog 
         open={dialogOpen} 
-        onClose={() => setDialogOpen(false)}
+        onClose={() => !dialogConfig.onConfirm && setDialogOpen(false)}
         PaperProps={{
           sx: {
             borderRadius: 3,
@@ -481,7 +508,7 @@ export default function Login({ onLogin }: LoginProps) {
           </Typography>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'center', pb: 3, gap: 1 }}>
-          {dialogConfig.onConfirm && (
+          {dialogConfig.cancelText && (
             <Button 
               onClick={() => setDialogOpen(false)} 
               sx={{ 
@@ -491,7 +518,7 @@ export default function Login({ onLogin }: LoginProps) {
                 '&:hover': { bgcolor: '#f5f5f5' },
               }}
             >
-              {t.cancelBtn}
+              {dialogConfig.cancelText}
             </Button>
           )}
           <Button 

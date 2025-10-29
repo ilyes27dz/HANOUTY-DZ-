@@ -1,7 +1,7 @@
 {
-  "name": "nidhamy-pos",
+  "name": "HANOUTY DZ",
   "version": "10.0.1",
-  "description": "Nidhamy POS Desktop Application",
+  "description": "HANOUTY DZ  Desktop Application",
   "main": "src/main/electron.js",
   "homepage": "./",
   "scripts": {
@@ -10,7 +10,50 @@
     "start": "concurrently \"npm run react:start\" \"npm run electron:start\"",
     "build": "react-scripts build && tsc -p tsconfig.electron.json",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "dist": "npm run build && electron-builder"
+  },
+  "build": {
+    "appId": "com.hanouty.nidhamy",
+    "productName": "نظامي POS",
+    "directories": {
+      "buildResources": "public/icons",
+      "output": "dist"
+    },
+    "files": [
+      "build/**/*",
+      "src/main/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "icon": "public/icons/favicon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "installerIcon": "public/icons/favicon.ico",
+      "uninstallerIcon": "public/icons/favicon.ico",
+      "installerHeaderIcon": "public/icons/favicon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "نظامي POS",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "icon": "public/icons/favicon.ico",
+      "category": "public.app-category.business"
+    },
+    "linux": {
+      "icon": "public/icons/favicon.ico",
+      "target": ["AppImage"],
+      "category": "Office"
+    }
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

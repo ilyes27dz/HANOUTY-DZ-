@@ -1,4 +1,4 @@
-// src/renderer/Dashboard.tsx - ✅ النسخة النهائية الكاملة 100%
+// src/renderer/Dashboard.tsx - ✅ النسخة المُصلحة الكاملة 100%
 import React, { useState, useEffect } from 'react';
 import { 
   Box, IconButton, Tooltip, Typography, Card, CardContent, Grid, Avatar, 
@@ -63,6 +63,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, onLock }) => {
   const [showDailyReminder, setShowDailyReminder] = useState(false);
   const [showNotificationsDialog, setShowNotificationsDialog] = useState(false);
   
+  // ✅ Alert Dialog State
+  const [showAlertDialog, setShowAlertDialog] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
+  
   // Form States
   const [activationKey, setActivationKey] = useState('');
   const [machineId, setMachineId] = useState('');
@@ -90,339 +94,346 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, onLock }) => {
     phone: '',
     email: ''
   });
-  // ============================================
-  // 🔹 Effects
-  // ============================================
-  useEffect(() => {
-    loadInitialData();
-    checkDailyReminder();
+
+// ✅ دالة عرض الرسالة
+const showAlert = (msg: string) => {
+  setAlertMessage(msg);
+  setShowAlertDialog(true);
+};
+
+// ============================================
+// 🔹 Effects
+// ============================================
+
+// ✅ تكبير النافذة تلقائياً عند فتح Dashboard
+useEffect(() => {
+  if ((window as any).electron) {
+    (window as any).electron.maximizeWindow();
+  }
+}, []);
+
+
+useEffect(() => {
+  loadInitialData();
+  checkDailyReminder();
+  loadNotifications();
+  
+  const notificationInterval = setInterval(() => {
     loadNotifications();
-    
-    // تحديث الإشعارات كل 30 ثانية
-    const notificationInterval = setInterval(() => {
-      loadNotifications();
-    }, 30000);
-    
-    return () => clearInterval(notificationInterval);
-  }, []);
+  }, 30000);
+  
+  return () => clearInterval(notificationInterval);
+}, []);
 
   // ============================================
   // 🔹 Load Initial Data
-// ============================================
-// 🔹 Load Initial Data
-// ============================================
-const loadInitialData = async () => {
-  console.log('📥 Loading initial data...');
-  
-  // تحميل إعدادات المتجر
-  const saved = localStorage.getItem('storeSettings');
-  console.log('🔍 Store Settings:', saved);
-  
-  if (!saved) {
-    console.log('✅ No settings, showing Initial Setup');
-    setShowInitialSetup(true);
-  } else {
-    setStoreSettings(JSON.parse(saved));
-  }
-
-  // تحميل الإشعارات المخفية
-  const hidden = localStorage.getItem('hiddenNotifications');
-  if (hidden) {
-    setHiddenNotifications(JSON.parse(hidden));
-  }
-
-  // حساب الأيام المتبقية
-  const isTrial = localStorage.getItem('isTrial') === 'true';
-  const trialStartDate = localStorage.getItem('trialStartDate');
-  const trialDays = parseInt(localStorage.getItem('trialDays') || '5', 10);
-  const activationType = localStorage.getItem('activationType') || '';
-
-  setIsTrial(isTrial);
-  setActivationType(activationType);
-
-  if (isTrial && trialStartDate) {
-    const startDate = new Date(trialStartDate);
-    const currentDate = new Date();
-    const daysPassed = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-    const daysLeft = trialDays - daysPassed;
-    setTrialDaysLeft(daysLeft > 0 ? daysLeft : 0);
-  }
-
-  // الحصول على Machine ID
-  if (typeof window !== 'undefined' && (window as any).electron) {
-    try {
-      const result = await (window as any).electron.getMachineInfo();
-      if (result && result.success) {
-        setComputerName(result.computerName);
-        setMachineId(result.machineId);
-        console.log('✅ Machine Info:', result.computerName, result.machineId);
-      }
-    } catch (error) {
-      console.error('❌ Error getting machine info:', error);
+  // ============================================
+  const loadInitialData = async () => {
+    console.log('📥 Loading initial data...');
+    
+    const saved = localStorage.getItem('storeSettings');
+    console.log('🔍 Store Settings:', saved);
+    
+    if (!saved) {
+      console.log('✅ No settings, showing Initial Setup');
+      setShowInitialSetup(true);
+    } else {
+      setStoreSettings(JSON.parse(saved));
     }
-  }
 
-  // ✅ إضافة: التحقق من التحديثات تلقائياً بعد 5 ثواني
-  setTimeout(async () => {
-    console.log('🔄 Auto-checking for updates...');
-    try {
-      if ((window as any).electron) {
-        const result = await (window as any).electron.checkForUpdates();
-        console.log('📥 Auto-update result:', result);
-        
-        if (result.available) {
-          console.log('✅ Update available! Showing notification...');
-          setAvailableUpdate(result);
-          setShowUpdateDialog(true);
+    const hidden = localStorage.getItem('hiddenNotifications');
+    if (hidden) {
+      setHiddenNotifications(JSON.parse(hidden));
+    }
+
+    const isTrial = localStorage.getItem('isTrial') === 'true';
+    const trialStartDate = localStorage.getItem('trialStartDate');
+    const trialDays = parseInt(localStorage.getItem('trialDays') || '5', 10);
+    const activationType = localStorage.getItem('activationType') || '';
+
+    setIsTrial(isTrial);
+    setActivationType(activationType);
+
+    if (isTrial && trialStartDate) {
+      const startDate = new Date(trialStartDate);
+      const currentDate = new Date();
+      const daysPassed = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+      const daysLeft = trialDays - daysPassed;
+      setTrialDaysLeft(daysLeft > 0 ? daysLeft : 0);
+    }
+
+    if (typeof window !== 'undefined' && (window as any).electron) {
+      try {
+        const result = await (window as any).electron.getMachineInfo();
+        if (result && result.success) {
+          setComputerName(result.computerName);
+          setMachineId(result.machineId);
+          console.log('✅ Machine Info:', result.computerName, result.machineId);
         }
+      } catch (error) {
+        console.error('❌ Error getting machine info:', error);
       }
-    } catch (error) {
-      console.error('❌ Auto-update check error:', error);
     }
-  }, 5000);
-};
 
-// ============================================
-// 🔹 Check Daily Reminder
-// ============================================
-const checkDailyReminder = () => {
-  const lastReminder = localStorage.getItem('lastDailyReminder');
-  const today = new Date().toDateString();
-  const isTrial = localStorage.getItem('isTrial') === 'true';
-  
-  if (isTrial && lastReminder !== today) {
-    setTimeout(() => {
-      setShowDailyReminder(true);
-      localStorage.setItem('lastDailyReminder', today);
-    }, 3000);
-  }
-};
-
-// ============================================
-// 🔹 Load Notifications (مع فلترة المخفية)
-// ============================================
-const loadNotifications = async () => {
-  const newNotifications: any[] = [];
-  const hidden = JSON.parse(localStorage.getItem('hiddenNotifications') || '[]');
-
-  // إشعار 1: انتهاء النسخة التجريبية
-  const isTrial = localStorage.getItem('isTrial') === 'true';
-  const trialStartDate = localStorage.getItem('trialStartDate');
-  const trialDays = parseInt(localStorage.getItem('trialDays') || '5', 10);
-
-  if (isTrial && trialStartDate && !hidden.includes('trial-ending')) {
-    const startDate = new Date(trialStartDate);
-    const currentDate = new Date();
-    const daysPassed = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-    const daysLeft = trialDays - daysPassed;
-
-    if (daysLeft <= 3 && daysLeft > 0) {
-      newNotifications.push({
-        id: 'trial-ending',
-        type: 'warning',
-        titleAr: `⏰ تنبيه: ${daysLeft} ${daysLeft === 1 ? 'يوم' : 'أيام'} متبقية`,
-        titleFr: `⏰ Alerte: ${daysLeft} jour${daysLeft > 1 ? 's' : ''} restant${daysLeft > 1 ? 's' : ''}`,
-        messageAr: 'ستنتهي النسخة التجريبية قريباً. قم بالترقية للنسخة الكاملة!',
-        messageFr: 'Votre période d\'essai se termine bientôt. Passez à la version complète!',
-        date: new Date().toLocaleString('ar-DZ'),
-        canHide: true,
-      });
-    } else if (daysLeft <= 0 && !hidden.includes('trial-expired')) {
-      newNotifications.push({
-        id: 'trial-expired',
-        type: 'error',
-        titleAr: '❌ انتهت النسخة التجريبية',
-        titleFr: '❌ Période d\'essai expirée',
-        messageAr: 'يرجى شراء النسخة الكاملة للاستمرار!',
-        messageFr: 'Veuillez acheter la version complète pour continuer!',
-        date: new Date().toLocaleString('ar-DZ'),
-        canHide: false, // لا يمكن إخفاؤها
-      });
-    }
-  }
-
-  // إشعار 2 & 3: المخزون
+  setTimeout(async () => {
+  console.log('🔄 Auto-checking for updates...');
   try {
     if ((window as any).electron) {
-      const products = await (window as any).electron.getProducts();
+      const result = await (window as any).electron.checkForUpdates();
+      console.log('📥 Auto-update result:', result);
       
-      const lowStockProducts = products.filter((p: any) => 
-        p.stockActive && p.stock <= p.stockAlerte && p.stock > 0
-      );
-
-      if (lowStockProducts.length > 0 && !hidden.includes('low-stock')) {
-        newNotifications.push({
-          id: 'low-stock',
-          type: 'warning',
-          titleAr: `⚠️ ${lowStockProducts.length} منتجات مخزونها منخفض`,
-          titleFr: `⚠️ ${lowStockProducts.length} produits en stock faible`,
-          messageAr: 'بعض المنتجات تحتاج إعادة تموين!',
-          messageFr: 'Certains produits nécessitent un réapprovisionnement!',
-          date: new Date().toLocaleString('ar-DZ'),
-          products: lowStockProducts.slice(0, 5).map((p: any) => p.designation),
-          canHide: true,
-        });
-      }
-
-      const outOfStockProducts = products.filter((p: any) => 
-        p.stockActive && p.stock === 0
-      );
-
-      if (outOfStockProducts.length > 0 && !hidden.includes('out-of-stock')) {
-        newNotifications.push({
-          id: 'out-of-stock',
-          type: 'error',
-          titleAr: `🚫 ${outOfStockProducts.length} منتجات نفذت`,
-          titleFr: `🚫 ${outOfStockProducts.length} produits épuisés`,
-          messageAr: 'المنتجات التالية نفذت من المخزون!',
-          messageFr: 'Les produits suivants sont épuisés!',
-          date: new Date().toLocaleString('ar-DZ'),
-          products: outOfStockProducts.slice(0, 5).map((p: any) => p.designation),
-          canHide: true,
-        });
+      if (result.available) {
+        console.log('✅ Update available! Showing notification...');
+        setAvailableUpdate(result);
+        setShowUpdateDialog(true);
       }
     }
   } catch (error) {
-    console.error('Error loading products for notifications:', error);
+    console.error('❌ Auto-update check error:', error);
   }
+}, 3000);
 
-  setNotifications(newNotifications);
-  setNotificationCount(newNotifications.length);
-};
+  };
 
-// ============================================
-// 🔹 Notification Handlers
-// ============================================
-const handleHideNotification = (notificationId: string) => {
-  const hidden = JSON.parse(localStorage.getItem('hiddenNotifications') || '[]');
-  hidden.push(notificationId);
-  localStorage.setItem('hiddenNotifications', JSON.stringify(hidden));
-  setHiddenNotifications(hidden);
-  loadNotifications(); // إعادة تحميل بعد الإخفاء
-};
+  // ============================================
+  // 🔹 Check Daily Reminder
+  // ============================================
+  const checkDailyReminder = () => {
+    const lastReminder = localStorage.getItem('lastDailyReminder');
+    const today = new Date().toDateString();
+    const isTrial = localStorage.getItem('isTrial') === 'true';
+    
+    if (isTrial && lastReminder !== today) {
+      setTimeout(() => {
+        setShowDailyReminder(true);
+        localStorage.setItem('lastDailyReminder', today);
+      }, 3000);
+    }
+  };
 
-const handleDeleteNotification = (notificationId: string) => {
-  setNotifications(notifications.filter(n => n.id !== notificationId));
-  setNotificationCount(prev => prev - 1);
-};
+  // ============================================
+  // 🔹 Load Notifications
+  // ============================================
+  const loadNotifications = async () => {
+    const newNotifications: any[] = [];
+    const hidden = JSON.parse(localStorage.getItem('hiddenNotifications') || '[]');
 
-const handleClearAllNotifications = () => {
-  const allIds = notifications.filter(n => n.canHide).map(n => n.id);
-  const hidden = JSON.parse(localStorage.getItem('hiddenNotifications') || '[]');
-  const newHidden = [...new Set([...hidden, ...allIds])];
-  localStorage.setItem('hiddenNotifications', JSON.stringify(newHidden));
-  setHiddenNotifications(newHidden);
-  loadNotifications();
-};
+    const isTrial = localStorage.getItem('isTrial') === 'true';
+    const trialStartDate = localStorage.getItem('trialStartDate');
+    const trialDays = parseInt(localStorage.getItem('trialDays') || '5', 10);
 
-// ============================================
-// 🔹 Update Handlers
-// ============================================
-const checkForUpdates = async () => {
-  setCheckingUpdate(true);
-  console.log('🔄 Checking for updates...');
-  
-  try {
-    if ((window as any).electron) {
-      console.log('📡 Calling electron.checkForUpdates()...');
-      const result = await (window as any).electron.checkForUpdates();
-      console.log('📥 Update result:', result);
-      
-      if (result.available) {
-        console.log('✅ Update available!');
-        setAvailableUpdate(result);
-        setShowUpdateDialog(true);
+    if (isTrial && trialStartDate && !hidden.includes('trial-ending')) {
+      const startDate = new Date(trialStartDate);
+      const currentDate = new Date();
+      const daysPassed = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+      const daysLeft = trialDays - daysPassed;
+
+      if (daysLeft <= 3 && daysLeft > 0) {
+        newNotifications.push({
+          id: 'trial-ending',
+          type: 'warning',
+          titleAr: `⏰ تنبيه: ${daysLeft} ${daysLeft === 1 ? 'يوم' : 'أيام'} متبقية`,
+          titleFr: `⏰ Alerte: ${daysLeft} jour${daysLeft > 1 ? 's' : ''} restant${daysLeft > 1 ? 's' : ''}`,
+          messageAr: 'ستنتهي النسخة التجريبية قريباً. قم بالترقية للنسخة الكاملة!',
+          messageFr: 'Votre période d\'essai se termine bientôt. Passez à la version complète!',
+          date: new Date().toLocaleString('ar-DZ'),
+          canHide: true,
+        });
+      } else if (daysLeft <= 0 && !hidden.includes('trial-expired')) {
+        newNotifications.push({
+          id: 'trial-expired',
+          type: 'error',
+          titleAr: '❌ انتهت النسخة التجريبية',
+          titleFr: '❌ Période d\'essai expirée',
+          messageAr: 'يرجى شراء النسخة الكاملة للاستمرار!',
+          messageFr: 'Veuillez acheter la version complète pour continuer!',
+          date: new Date().toLocaleString('ar-DZ'),
+          canHide: false,
+        });
+      }
+    }
+
+    try {
+      if ((window as any).electron) {
+        const products = await (window as any).electron.getProducts();
+        
+        const lowStockProducts = products.filter((p: any) => 
+          p.stockActive && p.stock <= p.stockAlerte && p.stock > 0
+        );
+
+        if (lowStockProducts.length > 0 && !hidden.includes('low-stock')) {
+          newNotifications.push({
+            id: 'low-stock',
+            type: 'warning',
+            titleAr: `⚠️ ${lowStockProducts.length} منتجات مخزونها منخفض`,
+            titleFr: `⚠️ ${lowStockProducts.length} produits en stock faible`,
+            messageAr: 'بعض المنتجات تحتاج إعادة تموين!',
+            messageFr: 'Certains produits nécessitent un réapprovisionnement!',
+            date: new Date().toLocaleString('ar-DZ'),
+            products: lowStockProducts.slice(0, 5).map((p: any) => p.designation),
+            canHide: true,
+          });
+        }
+
+        const outOfStockProducts = products.filter((p: any) => 
+          p.stockActive && p.stock === 0
+        );
+
+        if (outOfStockProducts.length > 0 && !hidden.includes('out-of-stock')) {
+          newNotifications.push({
+            id: 'out-of-stock',
+            type: 'error',
+            titleAr: `🚫 ${outOfStockProducts.length} منتجات نفذت`,
+            titleFr: `🚫 ${outOfStockProducts.length} produits épuisés`,
+            messageAr: 'المنتجات التالية نفذت من المخزون!',
+            messageFr: 'Les produits suivants sont épuisés!',
+            date: new Date().toLocaleString('ar-DZ'),
+            products: outOfStockProducts.slice(0, 5).map((p: any) => p.designation),
+            canHide: true,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading products for notifications:', error);
+    }
+
+    setNotifications(newNotifications);
+    setNotificationCount(newNotifications.length);
+  };
+
+  // ============================================
+  // 🔹 Notification Handlers
+  // ============================================
+  const handleHideNotification = (notificationId: string) => {
+    const hidden = JSON.parse(localStorage.getItem('hiddenNotifications') || '[]');
+    hidden.push(notificationId);
+    localStorage.setItem('hiddenNotifications', JSON.stringify(hidden));
+    setHiddenNotifications(hidden);
+    loadNotifications();
+  };
+
+  const handleDeleteNotification = (notificationId: string) => {
+    setNotifications(notifications.filter(n => n.id !== notificationId));
+    setNotificationCount(prev => prev - 1);
+  };
+
+  const handleClearAllNotifications = () => {
+    const allIds = notifications.filter(n => n.canHide).map(n => n.id);
+    const hidden = JSON.parse(localStorage.getItem('hiddenNotifications') || '[]');
+    const newHidden = [...new Set([...hidden, ...allIds])];
+    localStorage.setItem('hiddenNotifications', JSON.stringify(newHidden));
+    setHiddenNotifications(newHidden);
+    loadNotifications();
+  };
+
+  // ============================================
+  // 🔹 Update Handlers
+  // ============================================
+  const checkForUpdates = async () => {
+    setCheckingUpdate(true);
+    console.log('🔄 Checking for updates...');
+    
+    try {
+      if ((window as any).electron) {
+        console.log('📡 Calling electron.checkForUpdates()...');
+        const result = await (window as any).electron.checkForUpdates();
+        console.log('📥 Update result:', result);
+        
+        if (result.available) {
+          console.log('✅ Update available!');
+          setAvailableUpdate(result);
+          setShowUpdateDialog(true);
+        } else {
+          console.log('ℹ️ No update available');
+          showAlert(isArabic 
+            ? '✅ أنت تستخدم أحدث إصدار!\n\nالإصدار الحالي: 1.0.0'
+            : '✅ Vous utilisez la dernière version!\n\nVersion actuelle: 1.0.0'
+          );
+        }
       } else {
-        console.log('ℹ️ No update available');
-        alert(isArabic 
-          ? '✅ أنت تستخدم أحدث إصدار!\n\nالإصدار الحالي: 1.0.0'
-          : '✅ Vous utilisez la dernière version!\n\nVersion actuelle: 1.0.0'
+        console.error('❌ Electron API not available');
+      }
+    } catch (error) {
+      console.error('❌ Update check error:', error);
+      showAlert(isArabic 
+        ? '❌ خطأ في التحقق من التحديثات!'
+        : '❌ Erreur lors de la vérification des mises à jour!'
+      );
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
+
+  const handleDownloadUpdate = async () => {
+    if (availableUpdate && availableUpdate.downloadUrl) {
+      try {
+        console.log('📥 Downloading from:', availableUpdate.downloadUrl);
+        
+        if ((window as any).electron) {
+          const result = await (window as any).electron.downloadUpdate(availableUpdate.downloadUrl);
+          
+          if (result.success) {
+            showAlert(isArabic
+              ? '✅ تم فتح رابط التحديث في المتصفح!\n\nيرجى تنزيل الملف وتثبيته.'
+              : '✅ Lien de téléchargement ouvert!\n\nVeuillez télécharger et installer le fichier.'
+            );
+            setShowUpdateDialog(false);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Download error:', error);
+        showAlert(isArabic
+          ? '❌ خطأ في فتح رابط التحديث!'
+          : '❌ Erreur lors de l\'ouverture du lien!'
         );
       }
     } else {
-      console.error('❌ Electron API not available');
+      showAlert(isArabic
+        ? '❌ رابط التحديث غير متوفر!'
+        : '❌ Lien de téléchargement non disponible!'
+      );
     }
-  } catch (error) {
-    console.error('❌ Update check error:', error);
-    alert(isArabic 
-      ? '❌ خطأ في التحقق من التحديثات!'
-      : '❌ Erreur lors de la vérification des mises à jour!'
-    );
-  } finally {
-    setCheckingUpdate(false);
-  }
-};
+  };
 
-const handleDownloadUpdate = async () => {
-  if (availableUpdate && availableUpdate.downloadUrl) {
+  // ============================================
+  // 🔹 Database Backup Handler
+  // ============================================
+  const handleBackupDatabase = async () => {
     try {
-      console.log('📥 Downloading from:', availableUpdate.downloadUrl);
-      
       if ((window as any).electron) {
-        const result = await (window as any).electron.downloadUpdate(availableUpdate.downloadUrl);
-        
+        const result = await (window as any).electron.backupDatabase();
         if (result.success) {
-          alert(isArabic
-            ? '✅ تم فتح رابط التحديث في المتصفح!\n\nيرجى تنزيل الملف وتثبيته.'
-            : '✅ Lien de téléchargement ouvert!\n\nVeuillez télécharger et installer le fichier.'
+          showAlert(isArabic 
+            ? `✅ تم حفظ النسخة الاحتياطية!\n\nالمسار: ${result.path}\nالحجم: ${result.size}\nعدد المنتجات: ${result.productCount}`
+            : `✅ Sauvegarde réussie!\n\nChemin: ${result.path}\nTaille: ${result.size}\nNombre de produits: ${result.productCount}`
           );
-          setShowUpdateDialog(false);
+        } else {
+          showAlert(isArabic 
+            ? '❌ فشل حفظ النسخة الاحتياطية!'
+            : '❌ Échec de la sauvegarde!'
+          );
         }
       }
     } catch (error) {
-      console.error('❌ Download error:', error);
-      alert(isArabic
-        ? '❌ خطأ في فتح رابط التحديث!'
-        : '❌ Erreur lors de l\'ouverture du lien!'
+      console.error('Backup error:', error);
+      showAlert(isArabic 
+        ? '❌ خطأ في حفظ النسخة الاحتياطية!'
+        : '❌ Erreur lors de la sauvegarde!'
       );
     }
-  } else {
-    alert(isArabic
-      ? '❌ رابط التحديث غير متوفر!'
-      : '❌ Lien de téléchargement non disponible!'
-    );
-  }
-};
+  };
 
-// ============================================
-// 🔹 Database Backup Handler
-// ============================================
-const handleBackupDatabase = async () => {
-  try {
-    if ((window as any).electron) {
-      const result = await (window as any).electron.backupDatabase();
-      if (result.success) {
-        alert(isArabic 
-          ? `✅ تم حفظ النسخة الاحتياطية!\n\nالمسار: ${result.path}\nالحجم: ${result.size}\nعدد المنتجات: ${result.productCount}`
-          : `✅ Sauvegarde réussie!\n\nChemin: ${result.path}\nTaille: ${result.size}\nNombre de produits: ${result.productCount}`
-        );
-      } else {
-        alert(isArabic 
-          ? '❌ فشل حفظ النسخة الاحتياطية!'
-          : '❌ Échec de la sauvegarde!'
-        );
-      }
+  // ============================================
+  // 🔹 Other Handlers
+  // ============================================
+  const handleInitialSetup = () => {
+    if (!storeSettings.storeName || !storeSettings.activity) {
+      showAlert(isArabic ? 'يرجى ملء الحقول المطلوبة' : 'Veuillez remplir les champs requis');
+      return;
     }
-  } catch (error) {
-    console.error('Backup error:', error);
-    alert(isArabic 
-      ? '❌ خطأ في حفظ النسخة الاحتياطية!'
-      : '❌ Erreur lors de la sauvegarde!'
-    );
-  }
-};
-
-// ============================================
-// 🔹 Other Handlers
-// ============================================
-const handleInitialSetup = () => {
-  if (!storeSettings.storeName || !storeSettings.activity) {
-    alert(isArabic ? 'يرجى ملء الحقول المطلوبة' : 'Veuillez remplir les champs requis');
-    return;
-  }
-  localStorage.setItem('storeSettings', JSON.stringify(storeSettings));
-  setShowInitialSetup(false);
-};
+    localStorage.setItem('storeSettings', JSON.stringify(storeSettings));
+    setShowInitialSetup(false);
+  };
 
   const handleAnydeskClick = () => {
     try {
@@ -455,17 +466,143 @@ const handleInitialSetup = () => {
     }
   };
 
-  const handleCopyMachineId = () => {
-    navigator.clipboard.writeText(machineId);
-    alert(isArabic ? '✅ تم نسخ رقم الجهاز!' : '✅ ID machine copié!');
+  const handleCopyMachineId = async () => {
+    try {
+      await navigator.clipboard.writeText(machineId);
+      showAlert(isArabic ? '✅ تم نسخ رقم الجهاز!' : '✅ ID machine copié!');
+    } catch (error) {
+      const textArea = document.createElement('textarea');
+      textArea.value = machineId;
+      textArea.style.position = 'fixed';
+      textArea.style.top = '0';
+      textArea.style.left = '0';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      showAlert(isArabic ? '✅ تم نسخ رقم الجهاز!' : '✅ ID machine copié!');
+    }
   };
 
-  const handleActivateProgram = () => {
-    alert(isArabic 
-      ? 'جاري التطوير... سيتم ربطه بصفحة Activation'
-      : 'En développement... Sera lié à la page Activation'
+const handleActivateProgram = async () => {
+  if (!activationKey) {
+    showAlert(isArabic 
+      ? '⚠️ يرجى إدخال كود التفعيل!'
+      : '⚠️ Veuillez entrer le code d\'activation!'
     );
-  };
+    return;
+  }
+
+  try {
+    // ✅ تفعيل تجريبي (HT-...)
+    if (activationKey.startsWith('HT-')) {
+      const parts = activationKey.split('-');
+      
+      if (parts.length !== 5 || parts[1].length !== 2) {
+        showAlert(isArabic 
+          ? '❌ كود التفعيل غير صحيح!'
+          : '❌ Code d\'activation invalide!'
+        );
+        return;
+      }
+
+      const trialDays = parseInt(parts[1], 10);
+      
+      if (isNaN(trialDays) || trialDays <= 0) {
+        showAlert(isArabic 
+          ? '❌ كود التفعيل غير صحيح!'
+          : '❌ Code d\'activation invalide!'
+        );
+        return;
+      }
+
+      if (typeof window !== 'undefined' && (window as any).electron) {
+        const machineInfo = await (window as any).electron.getMachineInfo();
+        const expectedKey = `HT-${trialDays}D-${machineInfo.machineId.substring(0, 4)}-${machineInfo.machineId.substring(4, 8)}-${machineInfo.machineId.substring(8)}`;
+        
+        if (activationKey !== expectedKey) {
+          showAlert(isArabic 
+            ? '❌ كود التفعيل لا يتطابق مع هذا الجهاز!'
+            : '❌ Ce code ne correspond pas à cette machine!'
+          );
+          return;
+        }
+
+        await (window as any).electron.markTrialUsed();
+        
+        localStorage.setItem('isTrial', 'true');
+        localStorage.setItem('activationType', 'trial');
+        localStorage.setItem('trialDays', trialDays.toString());
+        localStorage.setItem('trialStartDate', new Date().toISOString());
+        
+        setIsTrial(true);
+        setActivationType('trial');
+        setTrialDaysLeft(trialDays);
+        setShowActivationDialog(false);
+        
+        showAlert(isArabic 
+          ? `✅ تم تفعيل النسخة التجريبية!\n\nالمدة: ${trialDays} أيام`
+          : `✅ Version d'essai activée!\n\nDurée: ${trialDays} jours`
+        );
+        
+        setTimeout(() => window.location.reload(), 1500);
+      }
+    }
+    // ✅ تفعيل كامل (HK-...)
+    else if (activationKey.startsWith('HK-')) {
+      if (typeof window !== 'undefined' && (window as any).electron) {
+        const machineInfo = await (window as any).electron.getMachineInfo();
+        const expectedKey = `HK-${machineInfo.machineId.substring(0, 4)}-${machineInfo.machineId.substring(4, 8)}-${machineInfo.machineId.substring(8, 12)}-FULL`;
+        
+        if (activationKey !== expectedKey) {
+          showAlert(isArabic 
+            ? '❌ كود التفعيل لا يتطابق مع هذا الجهاز!'
+            : '❌ Ce code ne correspond pas à cette machine!'
+          );
+          return;
+        }
+
+        const activationData = {
+          type: 'full',
+          key: activationKey,
+          machineId: machineInfo.machineId,
+          activatedAt: new Date().toISOString(),
+        };
+
+        await (window as any).electron.saveActivation(activationData);
+        
+        localStorage.setItem('isTrial', 'false');
+        localStorage.setItem('activationType', 'full');
+        localStorage.removeItem('trialDays');
+        localStorage.removeItem('trialStartDate');
+        
+        setIsTrial(false);
+        setActivationType('full');
+        setShowActivationDialog(false);
+        
+        showAlert(isArabic 
+          ? '✅ تم تفعيل النسخة الكاملة!\n\nشكراً لك!'
+          : '✅ Version complète activée!\n\nMerci!'
+        );
+        
+        setTimeout(() => window.location.reload(), 1500);
+      }
+    } else {
+      showAlert(isArabic 
+        ? '❌ كود التفعيل غير صحيح!'
+        : '❌ Code d\'activation invalide!'
+      );
+    }
+  } catch (error) {
+    console.error('Activation error:', error);
+    showAlert(isArabic 
+      ? '❌ خطأ في التفعيل!'
+      : '❌ Erreur d\'activation!'
+    );
+  }
+};
   // ============================================
   // 🔹 Data Arrays
   // ============================================
@@ -548,8 +685,32 @@ const handleInitialSetup = () => {
   // 🔹 Return JSX
   // ============================================
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: '#ecf0f1', direction: isArabic ? 'rtl' : 'ltr' }}>
+<Box sx={{ display: 'flex', height: '100vh', backgroundColor: '#ecf0f1', direction: isArabic ? 'rtl' : 'ltr', overflow: 'hidden' }}>
       
+      {/* ============================================ */}
+      {/* 🔹 Alert Dialog */}
+      {/* ============================================ */}
+      <Dialog 
+        open={showAlertDialog} 
+        onClose={() => setShowAlertDialog(false)}
+        PaperProps={{ sx: { borderRadius: 3, minWidth: 400 } }}
+      >
+        <DialogContent sx={{ textAlign: 'center', pt: 4, pb: 3 }}>
+          <Typography sx={{ whiteSpace: 'pre-line', fontSize: '1rem', lineHeight: 1.8 }}>
+            {alertMessage}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
+          <Button 
+            onClick={() => setShowAlertDialog(false)}
+            variant="contained"
+            sx={{ bgcolor: '#FF6B35', px: 4, '&:hover': { bgcolor: '#E55A2B' } }}
+          >
+            {isArabic ? 'حسناً' : 'OK'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* ============================================ */}
       {/* 🔹 Dialog 1: Daily Reminder */}
       {/* ============================================ */}
@@ -639,7 +800,7 @@ const handleInitialSetup = () => {
       </Dialog>
 
       {/* ============================================ */}
-      {/* 🔹 Dialog 2: Notifications (مع إخفاء/حذف) */}
+      {/* 🔹 Dialog 2: Notifications */}
       {/* ============================================ */}
       <Dialog 
         open={showNotificationsDialog} 
@@ -737,6 +898,7 @@ const handleInitialSetup = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
       {/* ============================================ */}
       {/* 🔹 Dialog 3: Activation */}
       {/* ============================================ */}
@@ -900,6 +1062,7 @@ const handleInitialSetup = () => {
         </DialogContent>
       </Dialog>
 
+      {  }
       {/* ============================================ */}
       {/* 🔹 Dialog 5: Initial Setup */}
       {/* ============================================ */}
@@ -1006,6 +1169,7 @@ const handleInitialSetup = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
       {/* ============================================ */}
       {/* 🔹 Dialog 6: Payment */}
       {/* ============================================ */}
@@ -1033,26 +1197,26 @@ const handleInitialSetup = () => {
 
           <Box sx={{ mb: 3, p: 2, backgroundColor: '#fff9c4', border: '2px dashed #000', borderRadius: '8px' }}>
             <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#000', mb: 1 }}>
-              CCP : 0179906431
+              CCP : 000000000
             </Typography>
             <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#000', mb: 1 }}>
-              ILYES TECHNOLOGY
+              ILYES NEGH
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#000' }}>
-              CLE : 76
+              CLE : 00
             </Typography>
           </Box>
 
           <Divider sx={{ my: 2 }} />
 
           <Typography variant="body1" sx={{ fontWeight: 'bold', mb: 1 }}>
-            📞 07.74.36.64.70
+            📞 05.42.03.80.84
           </Typography>
           <Typography variant="body2" sx={{ mb: 1 }}>
-            📧 contact@ilyestech.dz
+            📧 ilyes.negh@gmail.com
           </Typography>
           <Typography variant="body2" sx={{ color: '#27ae60', fontWeight: 'bold', mb: 2 }}>
-            💬 WhatsApp : 07.74.36.64.70
+            💬 WhatsApp : 05.42.03.80.84
           </Typography>
 
           <Alert severity="info" sx={{ mt: 2 }}>
@@ -1174,7 +1338,7 @@ const handleInitialSetup = () => {
             onClick={() => {
               localStorage.setItem('storeSettings', JSON.stringify(storeSettings));
               setShowSettingsDialog(false);
-              alert(isArabic ? '✅ تم حفظ التعديلات!' : '✅ Modifications enregistrées!');
+              showAlert(isArabic ? '✅ تم حفظ التعديلات!' : '✅ Modifications enregistrées!');
             }}
           >
             {isArabic ? '💾 حفظ' : '💾 Enregistrer'}
@@ -1199,6 +1363,7 @@ const handleInitialSetup = () => {
           overflowY: 'auto',
           '&::-webkit-scrollbar': { width: '6px' },
           '&::-webkit-scrollbar-thumb': { backgroundColor: '#ff6b35', borderRadius: '10px' },
+          zIndex: 10,
         }}
       >
         <Box sx={{ padding: '12px', textAlign: 'center', borderBottom: '1px solid #34495e' }}>
@@ -1216,7 +1381,7 @@ const handleInitialSetup = () => {
             {storeSettings.storeName || 'ADMIN'}
           </Typography>
           <Chip
-            label={storeSettings.activity || 'Admin'}
+            label={storeSettings.activity || 'commerce'}
             size="small"
             sx={{
               backgroundColor: '#e74c3c',
@@ -1274,7 +1439,14 @@ const handleInitialSetup = () => {
       {/* ============================================ */}
       {/* 🔹 Main Content */}
       {/* ============================================ */}
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', [isArabic ? 'marginRight' : 'marginLeft']: '220px' }}>
+<Box sx={{ 
+  flex: 1, 
+  display: 'flex', 
+  flexDirection: 'column', 
+  [isArabic ? 'marginRight' : 'marginLeft']: '220px',
+  height: '100vh',
+  overflow: 'hidden'
+}}>
         
         {/* Top Bar */}
         <Box
@@ -1378,9 +1550,17 @@ const handleInitialSetup = () => {
           </Box>
         </Box>
 
-        {/* Dashboard Content */}
-        {selectedMenu === 'home' ? (
-          <Box sx={{ flex: 1, padding: '20px', overflowY: 'auto', display: 'flex', gap: 2.5, flexDirection: isArabic ? 'row-reverse' : 'row' }}>
+        {/* Dashboard Content - ✅ مع overflow للصفحات */}
+{selectedMenu === 'home' ? (
+  <Box sx={{ 
+    flex: 1, 
+    padding: '20px', 
+    paddingTop: '30px',  // ✅ إضافة مسافة من الأعلى
+    overflowY: 'auto', 
+    display: 'flex', 
+    gap: 2.5, 
+    flexDirection: isArabic ? 'row-reverse' : 'row' 
+  }}>
             <Box sx={{ flex: 1 }}>
               <Grid container spacing={1.5}>
                 {dashboardCards.map((card, index) => (
@@ -1543,7 +1723,7 @@ const handleInitialSetup = () => {
                 }}
               >
                 <Typography variant="caption" sx={{ color: '#856404', fontWeight: 'bold', fontSize: '12px' }}>
-                  Support: 07.74.36.64.70
+                  Support: 05.42.03.80.84
                 </Typography>
                 
                 {isTrial ? (
@@ -1580,7 +1760,9 @@ const handleInitialSetup = () => {
             </Box>
           </Box>
         ) : (
-          renderPageContent()
+          <Box sx={{ flex: 1, overflowY: 'auto' }}>
+            {renderPageContent()}
+          </Box>
         )}
       </Box>
 
