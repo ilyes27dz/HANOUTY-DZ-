@@ -1,4 +1,4 @@
-// src/main/electron.js - ✅ النسخة النهائية الكاملة 891+ سطر
+// src/main/electron.js - ✅ النسخة النهائية الكاملة - PRODUCTION READY
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -12,6 +12,7 @@ app.disableHardwareAcceleration();
 
 let mainWindow = null;
 let db = null;
+const isDevelopment = process.env.NODE_ENV === 'development';
 
 // ============================================
 // 🔹 نظام التشفير للحماية
@@ -37,6 +38,18 @@ function decrypt(text) {
   return decrypted.toString();
 }
 
+function log(message) {
+  if (isDevelopment) {
+    console.log(message);
+  }
+}
+
+function logError(message) {
+  if (isDevelopment) {
+    console.error(message);
+  }
+}
+
 // ============================================
 // 🔹 تهيئة قاعدة البيانات
 // ============================================
@@ -50,10 +63,10 @@ async function initDatabase() {
   try {
     const buffer = fs.readFileSync(dbPath);
     db = new SQL.Database(buffer);
-    console.log('✅ Database loaded from:', dbPath);
+    log('✅ Database loaded from: ' + dbPath);
   } catch {
     db = new SQL.Database();
-    console.log('✅ New database created');
+    log('✅ New database created');
   }
 
   db.run(`
@@ -114,9 +127,9 @@ async function initDatabase() {
     db.run(`ALTER TABLE products ADD COLUMN batterie TEXT`);
     db.run(`ALTER TABLE products ADD COLUMN camera TEXT`);
     db.run(`ALTER TABLE products ADD COLUMN imei TEXT`);
-    console.log('✅ Smartphone columns added');
+    log('✅ Smartphone columns added');
   } catch (error) {
-    console.log('⚠️ Columns already exist');
+    log('⚠️ Columns already exist');
   }
 
   db.run(`CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, description TEXT)`);
@@ -129,7 +142,7 @@ async function initDatabase() {
 
   await addDefaultData();
   saveDatabase();
-  console.log('✅ Database initialized:', dbPath);
+  log('✅ Database initialized: ' + dbPath);
 }
 
 async function addDefaultData() {
@@ -178,9 +191,9 @@ async function addDefaultData() {
       db.run(`INSERT INTO categories (name, description) VALUES ('Vêtements', 'Habillement')`);
     }
 
-    console.log('✅ Default data added');
+    log('✅ Default data added');
   } catch (error) {
-    console.error('⚠️ Default data already exists or error:', error.message);
+    logError('⚠️ Default data already exists or error: ' + error.message);
   }
 }
 
@@ -213,14 +226,12 @@ ipcMain.handle('get-machine-info', async () => {
     const hostname = os.hostname();
     
     const rawId = `${platform}-${arch}-${totalMem}-${cpus[0]?.model || 'unknown'}`;
-    
     let hash = 0;
     for (let i = 0; i < rawId.length; i++) {
       const char = rawId.charCodeAt(i);
       hash = ((hash << 5) - hash) + char;
       hash = hash & hash;
     }
-    
     const machineId = Math.abs(hash).toString().substring(0, 10);
     
     return {
@@ -231,7 +242,7 @@ ipcMain.handle('get-machine-info', async () => {
       arch: arch,
     };
   } catch (error) {
-    console.error('❌ Get machine info error:', error);
+    logError('❌ Get machine info error: ' + error);
     return { success: false, error: error.message };
   }
 });
@@ -254,7 +265,7 @@ ipcMain.handle('mark-trial-used', async () => {
     fs.writeFileSync(trialFlagPath, new Date().toISOString());
     return { success: true };
   } catch (error) {
-    console.error('❌ Mark trial error:', error);
+    logError('❌ Mark trial error: ' + error);
     return { success: false };
   }
 });
@@ -269,9 +280,8 @@ ipcMain.handle('check-time-manipulation', async () => {
     
     if (fs.existsSync(lastTimePath)) {
       const lastTime = parseInt(fs.readFileSync(lastTimePath, 'utf8'), 10);
-      
       if (currentTime < lastTime) {
-        console.log('⚠️ TIME MANIPULATION DETECTED!');
+        log('⚠️ TIME MANIPULATION DETECTED!');
         return { 
           success: false, 
           manipulated: true,
@@ -279,11 +289,10 @@ ipcMain.handle('check-time-manipulation', async () => {
         };
       }
     }
-    
     fs.writeFileSync(lastTimePath, currentTime.toString());
     return { success: true, manipulated: false };
   } catch (error) {
-    console.error('❌ Time check error:', error);
+    logError('❌ Time check error: ' + error);
     return { success: false, error: error.message };
   }
 });
@@ -294,22 +303,19 @@ ipcMain.handle('check-time-manipulation', async () => {
 ipcMain.handle('reset-everything', async () => {
   try {
     const userDataPath = app.getPath('userData');
-    
     const activationPath = path.join(userDataPath, '.activation');
     if (fs.existsSync(activationPath)) {
       fs.unlinkSync(activationPath);
-      console.log('✅ Activation deleted');
+      log('✅ Activation deleted');
     }
-    
     const trialFlagPath = path.join(userDataPath, '.trial_used');
     if (fs.existsSync(trialFlagPath)) {
       fs.unlinkSync(trialFlagPath);
-      console.log('✅ Trial flag deleted');
+      log('✅ Trial flag deleted');
     }
-    
     return { success: true, message: 'Reset completed!' };
   } catch (error) {
-    console.error('❌ Reset error:', error);
+    logError('❌ Reset error: ' + error);
     return { success: false, error: error.message };
   }
 });
@@ -327,10 +333,10 @@ ipcMain.handle('save-activation', async (event, activationData) => {
     const activationPath = path.join(app.getPath('userData'), '.activation');
     const encryptedData = encrypt(JSON.stringify(activationData));
     fs.writeFileSync(activationPath, encryptedData);
-    console.log('✅ Activation saved (encrypted)');
+    log('✅ Activation saved (encrypted)');
     return { success: true };
   } catch (error) {
-    console.error('❌ Save activation error:', error);
+    logError('❌ Save activation error: ' + error);
     return { success: false, error: error.message };
   }
 });
@@ -338,19 +344,16 @@ ipcMain.handle('save-activation', async (event, activationData) => {
 ipcMain.handle('load-activation', async () => {
   try {
     const activationPath = path.join(app.getPath('userData'), '.activation');
-    
     if (!fs.existsSync(activationPath)) {
       return { success: false, data: null };
     }
-    
     const encryptedData = fs.readFileSync(activationPath, 'utf8');
     const decryptedData = decrypt(encryptedData);
     const activationData = JSON.parse(decryptedData);
-    
-    console.log('✅ Activation loaded (decrypted)');
+    log('✅ Activation loaded (decrypted)');
     return { success: true, data: activationData };
   } catch (error) {
-    console.error('❌ Load activation error:', error);
+    logError('❌ Load activation error: ' + error);
     return { success: false, data: null };
   }
 });
@@ -361,7 +364,7 @@ ipcMain.handle('delete-activation', async () => {
     if (fs.existsSync(activationPath)) {
       fs.unlinkSync(activationPath);
     }
-    console.log('✅ Activation deleted');
+    log('✅ Activation deleted');
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -407,7 +410,7 @@ ipcMain.handle('add-product', async (event, product) => {
     saveDatabase();
     return { success: true };
   } catch (error) {
-    console.error('❌ Add error:', error);
+    logError('❌ Add error: ' + error);
     throw error;
   }
 });
@@ -438,7 +441,7 @@ ipcMain.handle('update-product', async (event, product) => {
     saveDatabase();
     return { success: true };
   } catch (error) {
-    console.error('❌ Update error:', error);
+    logError('❌ Update error: ' + error);
     throw error;
   }
 });
@@ -449,7 +452,7 @@ ipcMain.handle('delete-product', async (event, id) => {
     saveDatabase();
     return { success: true };
   } catch (error) {
-    console.error('❌ Delete error:', error);
+    logError('❌ Delete error: ' + error);
     throw error;
   }
 });
@@ -468,7 +471,7 @@ ipcMain.handle('get-categories', async () => {
     `);
     return resultToArray(result);
   } catch (error) {
-    console.error('❌ Get categories error:', error);
+    logError('❌ Get categories error: ' + error);
     return [];
   }
 });
@@ -480,7 +483,7 @@ ipcMain.handle('add-category', async (event, category) => {
     saveDatabase();
     return { success: true };
   } catch (error) {
-    console.error('❌ Add category error:', error);
+    logError('❌ Add category error: ' + error);
     throw error;
   }
 });
@@ -492,7 +495,7 @@ ipcMain.handle('update-category', async (event, category) => {
     saveDatabase();
     return { success: true };
   } catch (error) {
-    console.error('❌ Update category error:', error);
+    logError('❌ Update category error: ' + error);
     throw error;
   }
 });
@@ -503,7 +506,7 @@ ipcMain.handle('delete-category', async (event, id) => {
     saveDatabase();
     return { success: true };
   } catch (error) {
-    console.error('❌ Delete category error:', error);
+    logError('❌ Delete category error: ' + error);
     throw error;
   }
 });
@@ -522,7 +525,7 @@ ipcMain.handle('get-marques', async () => {
     `);
     return resultToArray(result);
   } catch (error) {
-    console.error('❌ Get marques error:', error);
+    logError('❌ Get marques error: ' + error);
     return [];
   }
 });
@@ -534,7 +537,7 @@ ipcMain.handle('add-marque', async (event, marque) => {
     saveDatabase();
     return { success: true };
   } catch (error) {
-    console.error('❌ Add marque error:', error);
+    logError('❌ Add marque error: ' + error);
     throw error;
   }
 });
@@ -546,7 +549,7 @@ ipcMain.handle('update-marque', async (event, marque) => {
     saveDatabase();
     return { success: true };
   } catch (error) {
-    console.error('❌ Update marque error:', error);
+    logError('❌ Update marque error: ' + error);
     throw error;
   }
 });
@@ -557,7 +560,7 @@ ipcMain.handle('delete-marque', async (event, id) => {
     saveDatabase();
     return { success: true };
   } catch (error) {
-    console.error('❌ Delete marque error:', error);
+    logError('❌ Delete marque error: ' + error);
     throw error;
   }
 });
@@ -576,7 +579,7 @@ ipcMain.handle('get-unites', async () => {
     `);
     return resultToArray(result);
   } catch (error) {
-    console.error('❌ Get unites error:', error);
+    logError('❌ Get unites error: ' + error);
     return [];
   }
 });
@@ -588,7 +591,7 @@ ipcMain.handle('add-unite', async (event, unite) => {
     saveDatabase();
     return { success: true };
   } catch (error) {
-    console.error('❌ Add unite error:', error);
+    logError('❌ Add unite error: ' + error);
     throw error;
   }
 });
@@ -600,7 +603,7 @@ ipcMain.handle('update-unite', async (event, unite) => {
     saveDatabase();
     return { success: true };
   } catch (error) {
-    console.error('❌ Update unite error:', error);
+    logError('❌ Update unite error: ' + error);
     throw error;
   }
 });
@@ -611,7 +614,7 @@ ipcMain.handle('delete-unite', async (event, id) => {
     saveDatabase();
     return { success: true };
   } catch (error) {
-    console.error('❌ Delete unite error:', error);
+    logError('❌ Delete unite error: ' + error);
     throw error;
   }
 });
@@ -630,7 +633,7 @@ ipcMain.handle('get-tailles', async () => {
     `);
     return resultToArray(result);
   } catch (error) {
-    console.error('❌ Get tailles error:', error);
+    logError('❌ Get tailles error: ' + error);
     return [];
   }
 });
@@ -642,7 +645,7 @@ ipcMain.handle('add-taille', async (event, taille) => {
     saveDatabase();
     return { success: true };
   } catch (error) {
-    console.error('❌ Add taille error:', error);
+    logError('❌ Add taille error: ' + error);
     throw error;
   }
 });
@@ -654,7 +657,7 @@ ipcMain.handle('update-taille', async (event, taille) => {
     saveDatabase();
     return { success: true };
   } catch (error) {
-    console.error('❌ Update taille error:', error);
+    logError('❌ Update taille error: ' + error);
     throw error;
   }
 });
@@ -665,7 +668,7 @@ ipcMain.handle('delete-taille', async (event, id) => {
     saveDatabase();
     return { success: true };
   } catch (error) {
-    console.error('❌ Delete taille error:', error);
+    logError('❌ Delete taille error: ' + error);
     throw error;
   }
 });
@@ -678,7 +681,7 @@ ipcMain.handle('get-lost-products', async () => {
     const result = db.exec('SELECT * FROM lost_products ORDER BY date DESC');
     return resultToArray(result);
   } catch (error) {
-    console.error('❌ Get lost products error:', error);
+    logError('❌ Get lost products error: ' + error);
     return [];
   }
 });
@@ -692,7 +695,7 @@ ipcMain.handle('add-lost-product', async (event, product) => {
     saveDatabase();
     return { success: true };
   } catch (error) {
-    console.error('❌ Add lost product error:', error);
+    logError('❌ Add lost product error: ' + error);
     throw error;
   }
 });
@@ -703,7 +706,7 @@ ipcMain.handle('delete-lost-product', async (event, id) => {
     saveDatabase();
     return { success: true };
   } catch (error) {
-    console.error('❌ Delete lost product error:', error);
+    logError('❌ Delete lost product error: ' + error);
     throw error;
   }
 });
@@ -716,7 +719,7 @@ ipcMain.handle('get-stock-corrections', async () => {
     const result = db.exec('SELECT * FROM stock_corrections ORDER BY date DESC');
     return resultToArray(result);
   } catch (error) {
-    console.error('❌ Get stock corrections error:', error);
+    logError('❌ Get stock corrections error: ' + error);
     return [];
   }
 });
@@ -727,21 +730,14 @@ ipcMain.handle('add-stock-correction', async (event, correction) => {
       INSERT INTO stock_corrections (date, productId, productName, oldQuantity, newQuantity, difference, reason, user, purchaseValue, saleValue) 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
-      correction.date, 
-      correction.productId, 
-      correction.productName, 
-      correction.oldQuantity, 
-      correction.newQuantity, 
-      correction.difference, 
-      correction.reason, 
-      correction.user, 
-      correction.purchaseValue, 
-      correction.saleValue
+      correction.date, correction.productId, correction.productName, correction.oldQuantity, 
+      correction.newQuantity, correction.difference, correction.reason, correction.user, 
+      correction.purchaseValue, correction.saleValue
     ]);
     saveDatabase();
     return { success: true };
   } catch (error) {
-    console.error('❌ Add stock correction error:', error);
+    logError('❌ Add stock correction error: ' + error);
     throw error;
   }
 });
@@ -752,7 +748,7 @@ ipcMain.handle('delete-stock-correction', async (event, id) => {
     saveDatabase();
     return { success: true };
   } catch (error) {
-    console.error('❌ Delete stock correction error:', error);
+    logError('❌ Delete stock correction error: ' + error);
     throw error;
   }
 });
@@ -766,7 +762,7 @@ ipcMain.handle('get-settings', async () => {
     const settings = resultToArray(result);
     return settings.length > 0 ? settings[0] : null;
   } catch (error) {
-    console.error('❌ Get settings error:', error);
+    logError('❌ Get settings error: ' + error);
     return null;
   }
 });
@@ -781,7 +777,7 @@ ipcMain.handle('update-settings', async (event, settings) => {
     saveDatabase();
     return { success: true };
   } catch (error) {
-    console.error('❌ Update settings error:', error);
+    logError('❌ Update settings error: ' + error);
     throw error;
   }
 });
@@ -809,7 +805,7 @@ ipcMain.handle('backup-database', async () => {
       const result = db.exec('SELECT COUNT(*) as count FROM products');
       const productCount = result[0]?.values[0][0] || 0;
       
-      console.log('✅ Backup created:', backupPath);
+      log('✅ Backup created: ' + backupPath);
       return { 
         success: true, 
         path: backupPath,
@@ -821,7 +817,7 @@ ipcMain.handle('backup-database', async () => {
       return { success: false, error: 'Database file not found' };
     }
   } catch (error) {
-    console.error('❌ Backup error:', error);
+    logError('❌ Backup error: ' + error);
     return { success: false, error: error.message };
   }
 });
@@ -831,8 +827,8 @@ ipcMain.handle('backup-database', async () => {
 // ============================================
 ipcMain.handle('check-for-updates', async () => {
   try {
-    const currentVersion = '1.0.0';
-const updateUrl = 'https://raw.githubusercontent.com/ilyes27dz/hanouty-pos-/main/update.json';
+    const currentVersion = '10.0.2';
+    const updateUrl = 'https://raw.githubusercontent.com/ilyes27dz/hanouty-pos-/main/update.json';
     
     return new Promise((resolve) => {
       https.get(updateUrl, (res) => {
@@ -842,7 +838,7 @@ const updateUrl = 'https://raw.githubusercontent.com/ilyes27dz/hanouty-pos-/main
           try {
             const updateInfo = JSON.parse(data);
             if (updateInfo.version && updateInfo.version !== currentVersion) {
-              console.log('✅ Update available:', updateInfo.version);
+              log('✅ Update available: ' + updateInfo.version);
               resolve({
                 available: true,
                 version: updateInfo.version,
@@ -877,14 +873,11 @@ ipcMain.handle('download-update', async (event, downloadUrl) => {
       return { success: false, error: 'No download URL' };
     }
   } catch (error) {
-    console.error('❌ Download error:', error);
+    logError('❌ Download error: ' + error);
     return { success: false, error: error.message };
   }
 });
 
-// ============================================
-// 🔹 Window Controls
-// ============================================
 // ============================================
 // 🔹 Window Controls
 // ============================================
@@ -896,8 +889,6 @@ ipcMain.handle('maximize-window', async () => {
   }
   return { success: true };
 });
-
-
 
 ipcMain.on('minimize-window', () => {
   if (mainWindow) {
@@ -921,20 +912,30 @@ ipcMain.on('logout', () => {
 });
 
 // ============================================
-// 🔹 App Lifecycle مع التحقق من التفعيل
+// 🔹 App Lifecycle مع التحقق من التفعيل + DATABASE FIX
 // ============================================
 app.on('ready', async () => {
-  await initDatabase();
+  log('🚀 App starting...');
   
-  // ✅ التحقق من التفعيل عند البدء
-  const activationPath = path.join(app.getPath('userData'), '.activation');
+  const userDataPath = app.getPath('userData');
+  const dbPath = path.join(userDataPath, 'products.db');
+  
+  if (!fs.existsSync(dbPath)) {
+    log('⚠️ Database not found, will create on init');
+  } else {
+    log('✅ Database exists: ' + dbPath);
+  }
+  
+  await initDatabase();
+  log('✅ Database initialized successfully');
+  
+  const activationPath = path.join(userDataPath, '.activation');
   if (fs.existsSync(activationPath)) {
     try {
       const encryptedData = fs.readFileSync(activationPath, 'utf8');
       const decryptedData = decrypt(encryptedData);
       const activationData = JSON.parse(decryptedData);
       
-      // التحقق من Machine ID
       const cpus = os.cpus();
       const totalMem = os.totalmem();
       const platform = os.platform();
@@ -949,13 +950,13 @@ app.on('ready', async () => {
       const machineId = Math.abs(hash).toString().substring(0, 10);
       
       if (activationData.machineId !== machineId) {
-        console.log('⚠️ Invalid activation (wrong machine), removing...');
+        log('⚠️ Invalid activation (wrong machine), removing...');
         fs.unlinkSync(activationPath);
       } else {
-        console.log('✅ Valid activation found');
+        log('✅ Valid activation found');
       }
     } catch (error) {
-      console.error('⚠️ Activation check error:', error);
+      logError('⚠️ Activation check error: ' + error);
       try {
         fs.unlinkSync(activationPath);
       } catch {}
@@ -978,9 +979,36 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       webSecurity: false,
+      sandbox: false,
+      enableRemoteModule: false
     },
   });
-  
+
+  const isPackaged = app.isPackaged;
+
+  if (!isPackaged) {
+    mainWindow.loadURL('http://localhost:3000');
+    if (isDevelopment) {
+      mainWindow.webContents.openDevTools();
+    }
+  } else {
+    const publicPath = path.join(__dirname, '../../public');
+    const indexPath = path.join(publicPath, 'index.html');
+    
+    if (fs.existsSync(indexPath)) {
+      mainWindow.loadFile(indexPath);
+    } else {
+      const buildPath = path.join(__dirname, '../../build');
+      const buildIndexPath = path.join(buildPath, 'index.html');
+      if (fs.existsSync(buildIndexPath)) {
+        mainWindow.loadFile(buildIndexPath);
+      } else {
+        log('❌ No index.html found, attempting localhost fallback');
+        mainWindow.loadURL('http://localhost:3000');
+      }
+    }
+  }
+
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
@@ -990,11 +1018,16 @@ function createWindow() {
     });
   });
 
-  mainWindow.loadURL('http://localhost:3000');
-  mainWindow.webContents.openDevTools();
-
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    log('✅ Window loaded successfully');
+  });
+
+  mainWindow.webContents.on('crashed', () => {
+    logError('❌ Window crashed!');
   });
 }
 
@@ -1009,4 +1042,8 @@ app.on('activate', () => {
   if (mainWindow === null) {
     createWindow();
   }
+});
+
+process.on('uncaughtException', (error) => {
+  logError('❌ Uncaught Exception: ' + error);
 });

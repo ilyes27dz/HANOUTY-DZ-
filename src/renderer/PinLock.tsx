@@ -21,10 +21,14 @@ export default function PinLock({ onUnlock }: PinLockProps) {
   const [pin, setPin] = useState('');
   const [displayPin, setDisplayPin] = useState('');
   const [error, setError] = useState(false);
-  const [errorCount, setErrorCount] = useState(0);
   const [shake, setShake] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [lockTimeRemaining, setLockTimeRemaining] = useState(0);
+  
+  const [errorCount, setErrorCount] = useState(() => {
+    const saved = localStorage.getItem('pinErrorCount');
+    return saved ? parseInt(saved, 10) : 0;
+  });
   
   const [showForgotDialog, setShowForgotDialog] = useState(false);
   const [showChangeDialog, setShowChangeDialog] = useState(false);
@@ -44,45 +48,33 @@ export default function PinLock({ onUnlock }: PinLockProps) {
     return saved ? JSON.parse(saved) : { storeName: '', phone: '', email: '' };
   };
 
-  // 🎹 إضافة مستمع الكيبورد
+  // 🎹 مستمع الكيبورد
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
       if (isLocked || isFirstTime) return;
 
       const key = event.key;
 
-      // أرقام من 0-9
       if (/^[0-9]$/.test(key)) {
         event.preventDefault();
         handlePinInput(key);
-      }
-      // مفتاح Backspace
-      else if (key === 'Backspace') {
+      } else if (key === 'Backspace') {
         event.preventDefault();
         handleBackspace();
-      }
-      // مفتاح Delete
-      else if (key === 'Delete') {
+      } else if (key === 'Delete') {
         event.preventDefault();
         setPin('');
         setDisplayPin('');
-      }
-      // مفتاح Escape أو C لمسح الكل
-      else if (key === 'Escape' || key.toLowerCase() === 'c') {
+      } else if (key === 'Escape' || key.toLowerCase() === 'c') {
         event.preventDefault();
         setPin('');
         setDisplayPin('');
-      }
-      // مفتاح Enter لتأكيد
-      else if (key === 'Enter') {
-        event.preventDefault();
-        // سيتم التحقق تلقائياً في useEffect أدناه
       }
     };
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isLocked, isFirstTime, pin, displayPin]);
+  }, [isLocked, isFirstTime]);
 
   // تحديث الوقت المتبقي للقفل
   useEffect(() => {
@@ -96,6 +88,7 @@ export default function PinLock({ onUnlock }: PinLockProps) {
             setIsLocked(false);
             setErrorCount(0);
             localStorage.removeItem('lockTime');
+            localStorage.removeItem('pinErrorCount');
             return 0;
           }
           return newTime;
@@ -121,8 +114,10 @@ export default function PinLock({ onUnlock }: PinLockProps) {
         setIsLocked(true);
         setLockTimeRemaining(Math.ceil(remaining));
         setErrorCount(5);
+        localStorage.setItem('pinErrorCount', '5');
       } else {
         localStorage.removeItem('lockTime');
+        localStorage.removeItem('pinErrorCount');
       }
     }
   }, []);
@@ -130,20 +125,23 @@ export default function PinLock({ onUnlock }: PinLockProps) {
   const getStoredPin = () => localStorage.getItem('appPin') || '';
   const correctPin = getStoredPin();
 
-  // التحقق من الكود المدخل
+  // ✅ التحقق من الكود - الـ useEffect المصحح
   useEffect(() => {
     if (pin.length === 4 && !isFirstTime && !isLocked) {
       if (pin === correctPin) {
+        setErrorCount(0);
+        localStorage.removeItem('pinErrorCount');
         setSnackbar({ open: true, message: '✅ تم فتح القفل بنجاح!', type: 'success' });
         setTimeout(() => onUnlock(), 600);
       } else {
         const newCount = errorCount + 1;
         setErrorCount(newCount);
+        localStorage.setItem('pinErrorCount', newCount.toString());
+        
         setError(true);
         setShake(true);
         
         if (newCount >= 5) {
-          // ✅ قفل لمدة 20 دقيقة (1200 ثانية)
           const lockDuration = 1200;
           setIsLocked(true);
           setLockTimeRemaining(lockDuration);
@@ -167,7 +165,7 @@ export default function PinLock({ onUnlock }: PinLockProps) {
         }, 1200);
       }
     }
-  }, [pin, onUnlock, correctPin, isFirstTime, errorCount, isLocked]);
+  }, [pin]); // ✅ فقط pin
 
   const handlePinInput = (value: string) => {
     if (isLocked) {
@@ -239,6 +237,10 @@ export default function PinLock({ onUnlock }: PinLockProps) {
       forgotData.email.trim().toLowerCase() === storeSettings.email?.trim().toLowerCase()
     ) {
       const currentPin = getStoredPin();
+      
+      setErrorCount(0);
+      localStorage.removeItem('pinErrorCount');
+      
       setSnackbar({ 
         open: true, 
         message: `✅ الكود: ${currentPin}\n(تم إرساله إلى بريدك)`, 
@@ -283,6 +285,9 @@ export default function PinLock({ onUnlock }: PinLockProps) {
     }
     
     localStorage.setItem('appPin', changeData.newPin);
+    setErrorCount(0);
+    localStorage.removeItem('pinErrorCount');
+    
     setSnackbar({ open: true, message: '✅ تم تغيير الكود بنجاح!', type: 'success' });
     
     setTimeout(() => {
@@ -455,7 +460,7 @@ export default function PinLock({ onUnlock }: PinLockProps) {
         </Typography>
       </Paper>
 
-      {/* Dialog: الإعداد الأولي */}
+      {/* Setup Dialog */}
       <Dialog open={showSetupDialog} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
         <DialogContent sx={{ p: 3.5, textAlign: 'center' }}>
           <Box sx={{ width: 75, height: 75, mx: 'auto', mb: 2, borderRadius: '18px', bgcolor: '#FF6B35', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 2 }}>
@@ -481,7 +486,7 @@ export default function PinLock({ onUnlock }: PinLockProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: نسيت الكود */}
+      {/* Forgot Dialog */}
       <Dialog open={showForgotDialog} onClose={() => setShowForgotDialog(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
         <DialogContent sx={{ p: 3 }}>
           <Box sx={{ width: 60, height: 60, mx: 'auto', mb: 2, borderRadius: '50%', bgcolor: '#FF9800', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -513,7 +518,7 @@ export default function PinLock({ onUnlock }: PinLockProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: تغيير الكود */}
+      {/* Change Dialog */}
       <Dialog open={showChangeDialog} onClose={() => setShowChangeDialog(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
         <DialogContent sx={{ p: 3 }}>
           <Box sx={{ width: 60, height: 60, mx: 'auto', mb: 2, borderRadius: '50%', bgcolor: '#2196F3', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -541,7 +546,7 @@ export default function PinLock({ onUnlock }: PinLockProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: الأخطاء */}
+      {/* Error Dialog */}
       <Dialog open={showErrorDialog} onClose={() => setShowErrorDialog(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
         <DialogContent sx={{ p: 3, textAlign: 'center' }}>
           <Box sx={{ width: 80, height: 80, mx: 'auto', mb: 2, borderRadius: '50%', bgcolor: '#f44336', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

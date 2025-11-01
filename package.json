@@ -1,21 +1,22 @@
 {
-  "name": "HANOUTY DZ",
-  "version": "10.0.1",
-  "description": "HANOUTY DZ  Desktop Application",
+  "name": "hanouty-dz",
+  "version": "10.0.2",
+  "description": "HANOUTY DZ - Point of Sale Desktop Application",
   "main": "src/main/electron.js",
   "homepage": "./",
+  "author": "Your Name",
   "scripts": {
     "react:start": "cross-env BROWSER=none react-scripts start",
     "electron:start": "wait-on http://localhost:3000 && electron . --disable-gpu --no-sandbox",
     "start": "concurrently \"npm run react:start\" \"npm run electron:start\"",
-    "build": "react-scripts build && tsc -p tsconfig.electron.json",
+    "build": "react-scripts build",
+    "dist": "npm run build && electron-builder",
     "test": "react-scripts test",
-    "eject": "react-scripts eject",
-    "dist": "npm run build && electron-builder"
+    "eject": "react-scripts eject"
   },
   "build": {
-    "appId": "com.hanouty.nidhamy",
-    "productName": "نظامي POS",
+    "appId": "com.hanouty.dz",
+    "productName": "Hanouty DZ",
     "directories": {
       "buildResources": "public/icons",
       "output": "dist"
@@ -26,6 +27,9 @@
       "node_modules/**/*",
       "package.json"
     ],
+    "extraMetadata": {
+      "main": "src/main/electron.js"
+    },
     "win": {
       "icon": "public/icons/favicon.ico",
       "target": [
@@ -39,15 +43,16 @@
       "installerIcon": "public/icons/favicon.ico",
       "uninstallerIcon": "public/icons/favicon.ico",
       "installerHeaderIcon": "public/icons/favicon.ico",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "نظامي POS",
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "shortcutName": "Hanouty DZ"
     },
     "mac": {
       "icon": "public/icons/favicon.ico",
-      "category": "public.app-category.business"
+      "category": "public.app-category.business",
+      "target": ["dmg", "zip"]
     },
     "linux": {
       "icon": "public/icons/favicon.ico",
@@ -81,16 +86,10 @@
     "wait-on": "^9.0.1"
   },
   "eslintConfig": {
-    "extends": [
-      "react-app"
-    ]
+    "extends": ["react-app"]
   },
   "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
+    "production": [">0.2%", "not dead", "not op_mini all"],
     "development": [
       "last 1 chrome version",
       "last 1 firefox version",
