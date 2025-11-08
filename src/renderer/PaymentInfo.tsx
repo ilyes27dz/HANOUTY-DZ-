@@ -1,15 +1,13 @@
-import React from 'react';
-import { Box, Typography, IconButton, Divider, Button, Paper } from '@mui/material';
+import React, { useState } from 'react';
+import { 
+Box, Typography, IconButton, Button, Dialog 
+} from '@mui/material';
 import { 
   Close as CloseIcon,
-  AccountBalance as BankIcon,
-  QrCode2 as QrIcon,
-  Email as EmailIcon,
-  Phone as PhoneIcon,
-  Facebook as FacebookIcon,
-  ContentCopy as CopyIcon,
-  Warning as WarningIcon
+    ContentCopy as CopyIcon,
+  WhatsApp as WhatsAppIcon,
 } from '@mui/icons-material';
+import { Snackbar, Alert } from '@mui/material';
 
 interface PaymentInfoProps {
   machineId: string;
@@ -18,282 +16,268 @@ interface PaymentInfoProps {
 }
 
 export default function PaymentInfo({ machineId, computerName, onClose }: PaymentInfoProps) {
+const [copied, setCopied] = useState(false);
+  const [copiedText, setCopiedText] = useState('');
   
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    alert(`✅ تم نسخ ${label}!`);
+    setCopiedText(`✅ تم نسخ ${label}`);
+setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleWhatsAppClick = () => {
+    const message = `مرحبا، أريد تفعيل برنامج HANOUTY DZ\n\nمعلومات جهازي:\nالكمبيوتر: ${computerName}\nرقم الجهاز: ${machineId}`;
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/905403803084?text=${encodedMessage}`, '_blank');
   };
 
   return (
-    <Box sx={{ p: 3, position: 'relative' }}>
-      {/* زر الإغلاق */}
-      <IconButton
-        onClick={onClose}
-        sx={{
-          position: 'absolute',
-          top: 16,
-          right: 16,
-          bgcolor: 'rgba(244, 67, 54, 0.2)',
-          '&:hover': { bgcolor: 'rgba(244, 67, 54, 0.3)' },
-        }}
-      >
-        <CloseIcon sx={{ color: '#F44336' }} />
-      </IconButton>
-
-      {/* العنوان */}
-      <Box sx={{ textAlign: 'center', mb: 3 }}>
-        <Typography variant="h4" sx={{ color: '#FFD54F', fontWeight: 900, fontFamily: 'Cairo, Arial', mb: 1 }}>
-          معلومات الدفع
+    <Dialog 
+      open={true} 
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{ 
+        sx: { 
+          borderRadius: '12px',
+          direction: 'rtl'
+        } 
+      }}
+>
+      {/* الشريط العلوي - الاثنين معاً */}
+      <Box sx={{ 
+        bgcolor: '#ff6b35', 
+        color: '#fff', 
+        p: 2.5, 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        boxShadow: '0 2px 8px rgba(255, 107, 53, 0.2)'
+      }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
+        <Typography sx={{ fontWeight: 800, fontSize: '1.1rem' }}>
+💰           معلومات الدفع والتفعيل
         </Typography>
-        <Typography variant="body2" sx={{ color: '#B0BEC5', fontFamily: 'Cairo, Arial' }}>
-          اختر طريقة الدفع المناسبة لك
+        <Typography sx={{ fontWeight: 800, fontSize: '1.1rem', direction: 'ltr', textAlign: 'right' }}>
+          💰 Informations de paiement et activation
         </Typography>
+</Box>
+        <IconButton onClick={onClose} sx={{ color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' } }}>
+          <CloseIcon sx={{ fontSize: 24 }} />
+        </IconButton>
       </Box>
 
-      {/* طرق الدفع */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        
-        {/* 🏦 الدفع عبر CCP - بريدي الجزائر */}
-        <Paper
-          elevation={4}
-          sx={{
-            p: 3,
-            bgcolor: 'linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(3, 169, 244, 0.05) 100%)',
-            border: '2px solid rgba(33, 150, 243, 0.3)',
-            borderRadius: 3,
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <Box
-              sx={{
-                width: 50,
-                height: 50,
-                borderRadius: '12px',
-                bgcolor: 'rgba(33, 150, 243, 0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                mr: 2,
-              }}
-            >
-              <BankIcon sx={{ color: '#2196F3', fontSize: 28 }} />
-            </Box>
-            <Box sx={{ flex: 1 }}>
-              <Typography sx={{ color: '#2196F3', fontWeight: 900, fontSize: '1.2rem', fontFamily: 'Cairo, Arial' }}>
-                الدفع عبر CCP
-              </Typography>
-              <Typography sx={{ color: '#B0BEC5', fontSize: '0.85rem', fontFamily: 'Cairo, Arial' }}>
-                بريدي الجزائر - Algérie Poste
-              </Typography>
-            </Box>
-          </Box>
+      {/* المحتوى */}
+      <Box sx={{ p: 3, maxHeight: '70vh', overflowY: 'auto' }}>
 
-          <Divider sx={{ my: 2, borderColor: 'rgba(33, 150, 243, 0.2)' }} />
-
-          <Box sx={{ bgcolor: 'rgba(255, 193, 7, 0.1)', p: 2, borderRadius: 2, mb: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography sx={{ color: '#FFD54F', fontSize: '0.9rem', fontFamily: 'Cairo, Arial', fontWeight: 700 }}>
-                رقم الحساب (CCP):
+        {/* معلومات الجهاز */}
+        <Box sx={{ mb: 2.5 }}>
+              <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', color: '#1a1a1a', mb: 1 }}>
+                🖥️ معلومات جهازك / Votre ordinateur
+              </Typography>
+            
+          {/* اسم الكمبيوتر */}
+          <Box sx={{ mb: 1.5 }}>
+            <Typography sx={{ fontWeight: 600, fontSize: '0.8rem', color: '#999', mb: 0.5 }}>
+              الكمبيوتر / Nom
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography sx={{ color: '#ff6b35', fontSize: '1rem', fontWeight: 700, fontFamily: 'monospace', p: 1, bgcolor: '#fff9f5', borderRadius: '6px', border: '1px solid #ffe0d0', flex: 1 }}>
+                {computerName}
               </Typography>
               <IconButton 
                 size="small"
-                onClick={() => copyToClipboard('0024747431', 'رقم الحساب')}
-                sx={{ bgcolor: 'rgba(255, 152, 0, 0.2)', '&:hover': { bgcolor: 'rgba(255, 152, 0, 0.3)' } }}
+                onClick={() => copyToClipboard(computerName, 'الكمبيوتر')}
+                sx={{ color: '#ff6b35', p: 0.5 }}
               >
-                <CopyIcon sx={{ fontSize: 16, color: '#FF9800' }} />
+                <CopyIcon sx={{ fontSize: 18 }} />
               </IconButton>
             </Box>
-            <Typography sx={{ color: '#FFC107', fontSize: '1.3rem', fontWeight: 900, fontFamily: 'monospace', textAlign: 'center' }}>
-              0024747431
-            </Typography>
-          </Box>
+                      </Box>
 
-          <Box sx={{ bgcolor: 'rgba(255, 193, 7, 0.1)', p: 2, borderRadius: 2, mb: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography sx={{ color: '#FFD54F', fontSize: '0.9rem', fontFamily: 'Cairo, Arial', fontWeight: 700 }}>
-                المفتاح (Clé):
+          {/* رقم الجهاز */}
+            <Box>
+              <Typography sx={{ fontWeight: 600, fontSize: '0.8rem', color: '#999', mb: 0.5 }}>
+                رقم الجهاز / Machine ID
               </Typography>
+<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ 
+                flex: 1, 
+                p: 1.2, 
+                bgcolor: '#2c3e50', 
+                color: '#00ff00', 
+                fontFamily: 'monospace',
+                fontSize: '0.95rem',
+                fontWeight: 700,
+                borderRadius: '6px',
+                border: '2px solid #00ff00',
+                wordBreak: 'break-all',
+                textShadow: '0 0 6px rgba(0, 255, 0, 0.5)',
+                cursor: 'pointer',
+                '&:hover': {
+                  boxShadow: '0 0 10px rgba(0, 255, 0, 0.7)',
+                }
+              }}>
+                {machineId}
+              </Box>
               <IconButton 
                 size="small"
-                onClick={() => copyToClipboard('64', 'المفتاح')}
-                sx={{ bgcolor: 'rgba(255, 152, 0, 0.2)', '&:hover': { bgcolor: 'rgba(255, 152, 0, 0.3)' } }}
+                onClick={() => copyToClipboard(machineId, 'الجهاز')}
+                sx={{ color: '#ff6b35', p: 0.5 }}
               >
-                <CopyIcon sx={{ fontSize: 16, color: '#FF9800' }} />
+                <CopyIcon sx={{ fontSize: 18 }} />
               </IconButton>
             </Box>
-            <Typography sx={{ color: '#FFC107', fontSize: '1.3rem', fontWeight: 900, fontFamily: 'monospace', textAlign: 'center' }}>
-              64
-            </Typography>
+            </Box>
           </Box>
 
-          <Typography sx={{ color: '#B0BEC5', fontSize: '0.8rem', fontFamily: 'Cairo, Arial', textAlign: 'center' }}>
-            العنوان: RAS EL OUED
+{/* السعر - أخضر */}
+        <Box sx={{ 
+          p: 2.5, 
+          mb: 2.5, 
+          bgcolor: '#27ae60',
+          color: '#fff', 
+          textAlign: 'center', 
+          borderRadius: '8px',
+          border: '2px solid #1e8449',
+        }}>
+          <Typography sx={{ fontWeight: 700, fontSize: '1.3rem', mb: 0.5 }}>
+            8,000 دج
           </Typography>
-        </Paper>
-
-        {/* 💳 الدفع عبر BARIDIMOB */}
-        <Paper
-          elevation={4}
-          sx={{
-            p: 3,
-            bgcolor: 'linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(139, 195, 74, 0.05) 100%)',
-            border: '2px solid rgba(76, 175, 80, 0.3)',
-            borderRadius: 3,
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <Box
-              sx={{
-                width: 50,
-                height: 50,
-                borderRadius: '12px',
-                bgcolor: 'rgba(76, 175, 80, 0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                mr: 2,
-              }}
-            >
-              <PhoneIcon sx={{ color: '#4CAF50', fontSize: 28 }} />
-            </Box>
-            <Box sx={{ flex: 1 }}>
-              <Typography sx={{ color: '#4CAF50', fontWeight: 900, fontSize: '1.2rem', fontFamily: 'Cairo, Arial' }}>
-                الدفع عبر BARIDIMOB
-              </Typography>
-              <Typography sx={{ color: '#B0BEC5', fontSize: '0.85rem', fontFamily: 'Cairo, Arial' }}>
-                تحويل عبر الهاتف
-              </Typography>
-            </Box>
-          </Box>
-
-          <Divider sx={{ my: 2, borderColor: 'rgba(76, 175, 80, 0.2)' }} />
-
-          <Box sx={{ bgcolor: 'rgba(255, 193, 7, 0.1)', p: 2, borderRadius: 2, mb: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography sx={{ color: '#FFD54F', fontSize: '0.9rem', fontFamily: 'Cairo, Arial', fontWeight: 700 }}>
-                RIB:
-              </Typography>
-              <IconButton 
-                size="small"
-                onClick={() => copyToClipboard('00799999002474743164', 'RIB')}
-                sx={{ bgcolor: 'rgba(255, 152, 0, 0.2)', '&:hover': { bgcolor: 'rgba(255, 152, 0, 0.3)' } }}
-              >
-                <CopyIcon sx={{ fontSize: 16, color: '#FF9800' }} />
-              </IconButton>
-            </Box>
-            <Typography sx={{ color: '#FFC107', fontSize: '1.1rem', fontWeight: 900, fontFamily: 'monospace', textAlign: 'center', wordBreak: 'break-all' }}>
-              00799999002474743164
-            </Typography>
-          </Box>
-
-          <Box sx={{ bgcolor: 'rgba(255, 193, 7, 0.1)', p: 2, borderRadius: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography sx={{ color: '#FFD54F', fontSize: '0.9rem', fontFamily: 'Cairo, Arial', fontWeight: 700 }}>
-                البريد الإلكتروني:
-              </Typography>
-              <IconButton 
-                size="small"
-                onClick={() => copyToClipboard('YourEmail@gmail.com', 'البريد الإلكتروني')}
-                sx={{ bgcolor: 'rgba(255, 152, 0, 0.2)', '&:hover': { bgcolor: 'rgba(255, 152, 0, 0.3)' } }}
-              >
-                <CopyIcon sx={{ fontSize: 16, color: '#FF9800' }} />
-              </IconButton>
-            </Box>
-            <Typography sx={{ color: '#FFC107', fontSize: '1rem', fontWeight: 700, fontFamily: 'monospace', textAlign: 'center' }}>
-              YourEmail@gmail.com
-            </Typography>
-          </Box>
-        </Paper>
-
-        {/* ⚠️ تحذير مهم */}
-        <Paper
-          elevation={4}
-          sx={{
-            p: 2.5,
-            bgcolor: 'rgba(244, 67, 54, 0.1)',
-            border: '2px solid rgba(244, 67, 54, 0.3)',
-            borderRadius: 3,
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-            <WarningIcon sx={{ color: '#F44336', fontSize: 32, mt: 0.5 }} />
-            <Box sx={{ flex: 1 }}>
-              <Typography sx={{ color: '#F44336', fontWeight: 900, fontSize: '1rem', fontFamily: 'Cairo, Arial', mb: 1 }}>
-                ⚠️ مهم جداً - بعد الدفع:
-              </Typography>
-              <Typography sx={{ color: '#FFCDD2', fontSize: '0.85rem', fontFamily: 'Cairo, Arial', lineHeight: 1.8 }}>
-                يرجى إرسال نسخة من إيصال الدفع عبر البريد الإلكتروني أو صفحاتنا الرسمية على مواقع التواصل الاجتماعي مع ذكر:
-                <br />
-                • <strong>رقم الجهاز:</strong> {machineId}
-                <br />
-                • <strong>اسم الجهاز:</strong> {computerName}
-              </Typography>
-            </Box>
-          </Box>
-        </Paper>
-
-        {/* معلومات التواصل */}
-        <Box sx={{ textAlign: 'center', mt: 2 }}>
-          <Typography sx={{ color: '#FFD54F', fontSize: '0.95rem', fontFamily: 'Cairo, Arial', fontWeight: 700, mb: 2 }}>
-            📞 للاستفسار والتواصل:
+        <Typography sx={{ fontWeight: 600, fontSize: '0.9rem' }}>
+            ✅ مدى الحياة / À vie
           </Typography>
-          
-          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3, mb: 2 }}>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography sx={{ color: '#B0BEC5', fontSize: '0.75rem', fontFamily: 'Cairo, Arial', mb: 0.5 }}>
-                الهاتف / واتساب
-              </Typography>
-              <Button
-                variant="outlined"
-                startIcon={<PhoneIcon />}
-                onClick={() => copyToClipboard('07.74.36.64.70', 'رقم الهاتف')}
-                sx={{
-                  color: '#4CAF50',
-                  borderColor: 'rgba(76, 175, 80, 0.5)',
-                  fontFamily: 'Cairo, Arial',
-                  fontSize: '0.9rem',
-                  fontWeight: 700,
-                  '&:hover': {
-                    borderColor: '#4CAF50',
-                    bgcolor: 'rgba(76, 175, 80, 0.1)',
-                  },
-                }}
-              >
-                05.42.03.80.84
-              </Button>
             </Box>
 
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography sx={{ color: '#B0BEC5', fontSize: '0.75rem', fontFamily: 'Cairo, Arial', mb: 0.5 }}>
-                البريد الإلكتروني
+        {/* البريد الجزائري */}
+            <Box sx={{ mb: 2 }}>
+              <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', color: '#1a1a1a', mb: 0.8 }}>
+                🏦 البريد الجزائري / Poste Algérienne
               </Typography>
-              <Button
-                variant="outlined"
-                startIcon={<EmailIcon />}
-                onClick={() => copyToClipboard('YourEmail@gmail.com', 'البريد الإلكتروني')}
-                sx={{
-                  color: '#2196F3',
-                  borderColor: 'rgba(33, 150, 243, 0.5)',
-                  fontFamily: 'monospace',
-                  fontSize: '0.85rem',
-                  fontWeight: 700,
-                  '&:hover': {
-                    borderColor: '#2196F3',
-                    bgcolor: 'rgba(33, 150, 243, 0.1)',
-                  },
-                }}
-              >
+<Box sx={{ mb: 1 }}>
+            <Typography sx={{ fontSize: '0.75rem', color: '#999', fontWeight: 600, mb: 0.3 }}>
+              حساب / Compte CCP
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+              <Typography sx={{ color: '#1a1a1a', fontSize: '1rem', fontWeight: 700, fontFamily: 'monospace', flex: 1 }}>
+                0024747431
+              </Typography>
+<IconButton size="small" onClick={() => copyToClipboard('0024747431', 'CCP')} sx={{ color: '#ff6b35', p: 0.5 }}>
+                <CopyIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Box>
+          </Box>
+<Box>
+            <Typography sx={{ fontSize: '0.75rem', color: '#999', fontWeight: 600, mb: 0.3 }}>
+المفتاح / Clé
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+              <Typography sx={{ color: '#1a1a1a', fontSize: '1rem', fontWeight: 700, fontFamily: 'monospace', flex: 1 }}>
+                64
+              </Typography>
+              <IconButton                 size="small"                 onClick={() => copyToClipboard('64', 'Clé')}                 sx={{ color: '#ff6b35', p: 0.5 }}              >
+                <CopyIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Box>
+</Box>
+        </Box>
+
+        {/* BARIDIMOB */}
+        <Box sx={{ mb: 2 }}>
+            <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', color: '#1a1a1a', mb: 0.8 }}>
+            💳 BARIDIMOB
+          </Typography>
+          <Box sx={{ mb: 1 }}>
+            <Typography sx={{ fontSize: '0.75rem', color: '#999', fontWeight: 600, mb: 0.3 }}>
+              RIB
+            </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+              <Typography sx={{ color: '#1a1a1a', fontSize: '0.9rem', fontWeight: 700, fontFamily: 'monospace', flex: 1, wordBreak: 'break-all' }}>
+                00799999002474743164
+              </Typography>
+              <IconButton                 size="small"                 onClick={() => copyToClipboard('00799999002474743164', 'RIB')}                 sx={{ color: '#ff6b35', p: 0.5 }}              >
+                <CopyIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Box>
+                      </Box>
+        <Box>
+            <Typography sx={{ fontSize: '0.75rem', color: '#999', fontWeight: 600, mb: 0.3 }}>
+              البريد / Email
+              </Typography>
+<Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+              <Typography sx={{ color: '#1a1a1a', fontSize: '0.9rem', fontFamily: 'monospace', flex: 1 }}>
                 ilyes.negh@gmail.com
-              </Button>
+              </Typography>
+<IconButton size="small" onClick={() => copyToClipboard('ilyes.negh@gmail.com', 'Email')} sx={{ color: '#ff6b35', p: 0.5 }}>
+                <CopyIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Box>
+          </Box>
+        </Box>
+
+        {/* الهاتف */}
+        <Box sx={{ mb: 2.5 }}>
+          <Typography sx={{ fontSize: '0.75rem', color: '#999', fontWeight: 600, mb: 0.5 }}>
+            ☎️ الهاتف / Téléphone
+          </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+            <Typography sx={{ color: '#1a1a1a', fontSize: '1rem', fontWeight: 700, flex: 1 }}>
+                05.42.03.80.84
+                            </Typography>
+              <IconButton size="small"                 onClick={() => copyToClipboard('05.42.03.80.84', 'Tél')} sx={{ color: '#ff6b35', p: 0.5 }}>
+              <CopyIcon sx={{ fontSize: 16 }} />
+            </IconButton>
             </Box>
           </Box>
 
-          <Typography sx={{ color: '#78909C', fontSize: '0.75rem', fontFamily: 'Cairo, Arial' }}>
-            Facebook: Your Page Name
+{/* خطوات الدفع */}
+        <Box sx={{ p: 2, bgcolor: '#fff3cd', borderRadius: '8px', border: '1px solid #ffc107' }}>
+          <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', color: '#1a1a1a', mb: 1 }}>
+            📋 الخطوات / Étapes:
+          </Typography>
+          <Typography sx={{ fontSize: '0.85rem', color: '#333', lineHeight: 1.6 }}>
+            1️⃣ ادفع / Payez<br/>
+            2️⃣ صور الإيصال / Prenez une photo<br/>
+            3️⃣ أرسل عبر واتساب / Envoyez via WhatsApp<br/>
+            4️⃣ ستتلقى الكود / Vous recevrez le code
           </Typography>
         </Box>
 
       </Box>
+
+      {/* الزر السفلي - واتساب */}
+      <Box sx={{ 
+        p: 2, 
+        bgcolor: '#fff',
+        borderTop: '1px solid #e0e0e0',
+        display: 'flex',
+        gap: 1
+      }}>
+        <Button
+          startIcon={<WhatsAppIcon />}
+          onClick={handleWhatsAppClick}
+          fullWidth
+          variant="contained"
+          sx={{
+            bgcolor: '#25d366',
+            color: '#fff',
+            fontWeight: 700,
+            textTransform: 'none',
+            fontSize: '0.95rem',
+            '&:hover': { bgcolor: '#1da851' },
+          }}
+        >
+          📲 أرسل الإيصال / Envoyer le reçu
+        </Button>
     </Box>
+
+      {/* Snackbar */}
+      <Snackbar open={copied} autoHideDuration={2000} onClose={() => setCopied(false)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity="success" sx={{ fontFamily: 'Cairo, Arial', fontWeight: 600 }}>
+          {copiedText}
+        </Alert>
+      </Snackbar>
+    </Dialog>
   );
 }

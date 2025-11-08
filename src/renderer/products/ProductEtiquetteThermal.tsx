@@ -1,10 +1,12 @@
 // src/renderer/products/ProductEtiquetteThermal.tsx
+// ✅ FINAL COMPLETE CODE v17.0 - PERFECT WITH SETTINGS
+
 import React, { useState, useEffect } from 'react';
 import {
   Box, Button, TextField, Table, TableBody, TableCell, TableContainer, 
-  TableHead, TableRow, Typography, Checkbox
+  TableHead, TableRow, Typography, Checkbox, IconButton
 } from '@mui/material';
-import { ArrowBack } from '@mui/icons-material';
+import { ArrowBack, Delete as DeleteIcon } from '@mui/icons-material';
 import JsBarcode from 'jsbarcode';
 
 interface Product {
@@ -36,28 +38,34 @@ const ProductEtiquetteThermal: React.FC<ProductEtiquetteThermalProps> = ({ isAra
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [printList, setPrintList] = useState<PrintItem[]>([]);
-  const [quantity, setQuantity] = useState<number>(99);
-  const [selectedSize, setSelectedSize] = useState<number>(1);
+  const [quantity, setQuantity] = useState<number>(1);
+  const [selectedSize, setSelectedSize] = useState<number>(0);
   const [showPrice, setShowPrice] = useState(true);
   const [priceType, setPriceType] = useState<1 | 2 | 3>(1);
   const [showPreview, setShowPreview] = useState(true);
-  const [storeName, setStoreName] = useState('ILYES'); // ✅ قيمة افتراضية
+  const [storeName, setStoreName] = useState('ILYES');
 
-  // ✅ تحميل المنتجات + اسم المتجر من الإعدادات
+  // ✅ تحميل البيانات عند الدخول
   useEffect(() => {
     loadProducts();
+loadStoreNameFromSettings();
+  }, []);
     
-    // ✅ جلب اسم المتجر من localStorage
+    // ✅ تحميل اسم المتحر من الإعدادات
+  const loadStoreNameFromSettings = () => {
+    try {
     const savedSettings = localStorage.getItem('storeSettings');
     if (savedSettings) {
-      try {
-        const settings = JSON.parse(savedSettings);
-        setStoreName(settings.storeName || 'ILYES');
-      } catch (e) {
-        console.error('Error loading settings:', e);
+              const settings = JSON.parse(savedSettings);
+if (settings.storeName && settings.storeName.trim() !== '') {
+        setStoreName(settings.storeName);
+          console.log('✅ Store name loaded:', settings.storeName);
+}
       }
-    }
-  }, []);
+      } catch (error) {
+        console.error('❌ Error loading settings:', error);
+      }
+    };
 
   const loadProducts = async () => {
     try {
@@ -86,6 +94,7 @@ const ProductEtiquetteThermal: React.FC<ProductEtiquetteThermalProps> = ({ isAra
       ref: product.ref || `REF-${product.id}`
     };
     setPrintList([...printList, newItem]);
+setQuantity(1);
   };
 
   const handleIncrement = () => {
@@ -96,13 +105,17 @@ const ProductEtiquetteThermal: React.FC<ProductEtiquetteThermalProps> = ({ isAra
     setQuantity(prev => Math.max(1, prev - 1));
   };
 
+  const handleRemoveItem = (idx: number) => {
+    setPrintList(printList.filter((_, i) => i !== idx));
+  };
+
   const handleRemoveAll = () => {
     if (window.confirm(isArabic ? 'حذف الكل؟' : 'Supprimer tout?')) {
       setPrintList([]);
     }
   };
 
-  // ✅ دالة الطباعة مع الباركود الحقيقي + اسم المتجر
+  // ✅ دالة الطباعة محسّنة مع تصحيح الفراغات
   const handlePrint = () => {
     if (printList.length === 0) {
       alert(isArabic ? 'القائمة فارغة!' : 'Liste vide!');
@@ -110,14 +123,13 @@ const ProductEtiquetteThermal: React.FC<ProductEtiquetteThermalProps> = ({ isAra
     }
     
     const sizes = [
-      { width: 20, height: 40 },
-      { width: 45, height: 30 },
-      { width: 45, height: 35 }
+      { width: 105, height: 74.25 },
+      { width: 105, height: 63.64 },
+      { width: 105, height: 35.28 }
     ];
     const size = sizes[selectedSize];
     
-    // ✅ توليد صور الباركود
-    const barcodes: string[] = [];
+        const barcodes: string[] = [];
     printList.forEach((item) => {
       for (let i = 0; i < item.quantity; i++) {
         const canvas = document.createElement('canvas');
@@ -148,48 +160,86 @@ const ProductEtiquetteThermal: React.FC<ProductEtiquetteThermalProps> = ({ isAra
         <meta charset="UTF-8">
         <title>${isArabic ? 'ملصقات' : 'Étiquettes'} - ${storeName}</title>
         <style>
-          @page { size: ${size.width}mm ${size.height}mm; margin: 0; }
+          @page { size: A4; margin: 0; }
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: Arial, sans-serif; }
+          body { font-family: Arial, sans-serif; width: 210mm; height: 297mm; }
           .label {
             width: ${size.width}mm;
             height: ${size.height}mm;
-            padding: 1.5mm;
-            page-break-after: always;
+            padding: 0.5mm;
+            page-break-after: avoid;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            justify-content: flex-start;
             align-items: center;
+border: 0.5pt solid #999;
+            background: white;
+            float: left;
+            gap: 0;
           }
           .store-name { 
-            font-size: ${size.width < 40 ? '8px' : '10px'}; 
+            font-size: 9px; 
             font-weight: bold;
             text-align: center;
+line-height: 1;
+            flex-shrink: 0;
+            padding: 0;
+            margin: 0 0 0.3mm 0;
           }
           .barcode-container {
-            flex: 1;
+            flex: 0;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             width: 100%;
+gap: 0;
+            margin: 0 0 0.3mm 0;
+            padding: 0;
           }
-          .barcode-img { max-width: 100%; height: auto; }
+          .barcode-img { 
+max-width: 95mm; 
+height: auto;
+            display: block;
+            margin: 0;
+            padding: 0;
+}
           .barcode-number {
-            font-size: ${size.width < 40 ? '7px' : '8px'};
+            font-size: 8px;
             font-weight: bold;
-            font-family: monospace;
-            margin-top: 1mm;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 0.3px;
+            line-height: 1;
+            margin: 0.2mm 0 0 0;
+            padding: 0;
+          }
+          .product-info {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 0;
+            flex-shrink: 0;
+            margin: 0;
+            padding: 0;
           }
           .name { 
-            font-size: ${size.width < 40 ? '8px' : '10px'}; 
+            font-size: 8.5px; 
             font-weight: bold; 
             text-align: center;
-            margin: 1mm 0;
+line-height: 1.05;
+            word-break: break-word;
+            margin: 0;
+            padding: 0;
           }
           .price { 
-            font-size: ${size.width < 40 ? '13px' : '16px'}; 
+            font-size: 10px; 
             font-weight: bold; 
+color: #000;
+            line-height: 1;
+            margin: 0.1mm 0 0 0;
+            padding: 0;
           }
         </style>
       </head>
@@ -202,8 +252,10 @@ const ProductEtiquetteThermal: React.FC<ProductEtiquetteThermalProps> = ({ isAra
                 <img src="${barcodes[barcodeIndex++]}" class="barcode-img" alt="barcode">
                 <div class="barcode-number">${item.barcode}</div>
               </div>
+<div class="product-info">
               <div class="name">${item.name}</div>
               ${showPrice ? `<div class="price">${item.price.toFixed(2)} DA</div>` : ''}
+</div>
             </div>
           `).join('')
         ).join('')}
@@ -256,70 +308,30 @@ const ProductEtiquetteThermal: React.FC<ProductEtiquetteThermalProps> = ({ isAra
           {texts.header}
         </Typography>
         <Box sx={{ flex: 1 }} />
-        <Typography sx={{ fontSize: '14px' }}>V 10.7</Typography>
+        <Typography sx={{ fontSize: '14px' }}>V 17.0 ✅</Typography>
       </Box>
 
       {/* Options Bar */}
       <Box sx={{ backgroundColor: '#ecf0f1', p: 1, display: 'flex', gap: 1, alignItems: 'center', borderBottom: '2px solid #bdc3c7', flexWrap: 'wrap' }}>
-        {['20*40', '45*30', '45*35'].map((size, idx) => (
-          <Button
-            key={idx}
-            onClick={() => setSelectedSize(idx)}
-            sx={{
-              backgroundColor: selectedSize === idx ? '#e74c3c' : '#95a5a6',
-              color: '#fff',
-              fontWeight: 'bold',
-              fontSize: '12px',
-              minWidth: '80px',
-              py: 0.5,
-              '&:hover': { backgroundColor: selectedSize === idx ? '#c0392b' : '#7f8c8d' }
-            }}
-          >
+        {['A4×65 (8)', 'A4×56 (10)', 'A4×24 (18)'].map((size, idx) => (
+          <Button             key={idx}             onClick={() => setSelectedSize(idx)}             sx={{               backgroundColor: selectedSize === idx ? '#e74c3c' : '#95a5a6',               color: '#fff',               fontWeight: 'bold',               fontSize: '11px',               minWidth: '100px',               py: 0.5,               '&:hover': { backgroundColor: selectedSize === idx ? '#c0392b' : '#7f8c8d' } }}          >
             {size}
           </Button>
         ))}
-        <Button
-          onClick={() => setShowPrice(!showPrice)}
-          sx={{
-            backgroundColor: showPrice ? '#3498db' : '#95a5a6',
-            color: '#fff',
-            fontWeight: 'bold',
-            fontSize: '11px',
-            minWidth: '120px',
-            py: 0.5,
-            '&:hover': { backgroundColor: showPrice ? '#2980b9' : '#7f8c8d' }
-          }}
-        >
+        <Button           onClick={() => setShowPrice(!showPrice)}           sx={{             backgroundColor: showPrice ? '#3498db' : '#95a5a6',             color: '#fff',             fontWeight: 'bold',             fontSize: '11px',             minWidth: '120px',             py: 0.5,             '&:hover': { backgroundColor: showPrice ? '#2980b9' : '#7f8c8d' } }}        >
           {texts.priceOnly}
         </Button>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           <Checkbox size="small" checked={showPrice} onChange={(e) => setShowPrice(e.target.checked)} />
-          <Typography sx={{ fontSize: '12px' }}>{texts.showPrice}</Typography>
+          <Typography sx={{ fontSize: '11px' }}>{texts.showPrice}</Typography>
         </Box>
-        {[1, 2, 3].map(num => (
-          <Box key={num} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <input 
-              type="radio" 
-              checked={priceType === num} 
-              onChange={() => setPriceType(num as 1 | 2 | 3)}
-            />
-            <Typography sx={{ fontSize: '11px' }}>{isArabic ? `سعر ${num}` : `Prix 0${num}`}</Typography>
-          </Box>
-        ))}
-      </Box>
+              </Box>
 
       {/* Main Content */}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Left Panel */}
         <Box sx={{ flex: 1, p: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <TextField
-            fullWidth
-            size="small"
-            placeholder={texts.search}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            sx={{ mb: 2, backgroundColor: '#fff' }}
-          />
+          <TextField             fullWidth             size="small"             placeholder={texts.search}             value={searchTerm}             onChange={(e) => setSearchTerm(e.target.value)}             sx={{ mb: 2, backgroundColor: '#fff' }}           />
 
           <TableContainer sx={{ flex: 1, backgroundColor: '#fff', border: '1px solid #bdc3c7', overflow: 'auto' }}>
             <Table size="small" stickyHeader>
@@ -334,29 +346,17 @@ const ProductEtiquetteThermal: React.FC<ProductEtiquetteThermalProps> = ({ isAra
               <TableBody>
                 {filteredProducts.length > 0 ? (
                   filteredProducts.map((product) => (
-                    <TableRow
-                      key={product.id}
-                      onClick={() => handleAddToPrint(product)}
-                      sx={{
-                        cursor: 'pointer',
-                        '&:hover': { backgroundColor: '#3498db', color: '#fff' },
-                        '&:nth-of-type(even)': { backgroundColor: '#ecf0f1' }
-                      }}
-                    >
+                    <TableRow                       key={product.id}                       onClick={() => handleAddToPrint(product)}                       sx={{                         cursor: 'pointer',                         '&:hover': { backgroundColor: '#3498db', color: '#fff' },                         '&:nth-of-type(even)': { backgroundColor: '#ecf0f1' } }}                    >
                       <TableCell sx={{ fontSize: '11px', py: 0.5 }}>{product.id}</TableCell>
                       <TableCell sx={{ fontSize: '11px', py: 0.5 }}>{product.name}</TableCell>
-                      <TableCell sx={{ fontSize: '11px', fontWeight: 'bold', py: 0.5 }}>
-                        {(product.salePrice || 0).toFixed(2)} DA
-                      </TableCell>
+                      <TableCell sx={{ fontSize: '11px', fontWeight: 'bold', py: 0.5 }}>                        {(product.salePrice || 0).toFixed(2)} DA                      </TableCell>
                       <TableCell sx={{ fontSize: '11px', py: 0.5 }}>{product.quantity || 0}</TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
                     <TableCell colSpan={4} sx={{ textAlign: 'center', py: 4 }}>
-                      <Typography variant="h6" color="text.secondary">
-                        {texts.noProducts}
-                      </Typography>
+                      <Typography variant="h6" color="text.secondary">                        {texts.noProducts}                      </Typography>
                     </TableCell>
                   </TableRow>
                 )}
@@ -366,86 +366,59 @@ const ProductEtiquetteThermal: React.FC<ProductEtiquetteThermalProps> = ({ isAra
         </Box>
 
         {/* Right Panel */}
-        <Box sx={{ 
-          width: '520px',
-          display: 'flex', 
-          flexDirection: 'column',
-          borderLeft: '2px solid #bdc3c7',
-          backgroundColor: '#f8f9fa'
-        }}>
-          <Box sx={{ 
-            p: 2, 
-            display: 'flex', 
-            flexDirection: 'column', 
-            height: '100%',
-            gap: 2, 
-            overflow: 'auto' 
-          }}>
+        <Box sx={{           width: '520px',           display: 'flex',           flexDirection: 'column',           borderLeft: '2px solid #bdc3c7',           backgroundColor: '#f8f9fa'         }}>
+          <Box sx={{             p: 2,             display: 'flex',             flexDirection: 'column',             height: '100%',             gap: 2,             overflow: 'auto'           }}>
             {/* Info Card */}
             <Box sx={{ p: 1.5, backgroundColor: '#fff', border: '2px solid #e0e0e0', borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', flexShrink: 0 }}>
               {printList.length > 0 ? (
                 <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box sx={{ flex: 1 }}>
-                    <Typography sx={{ fontSize: '11px', color: '#7f8c8d', mb: 0.3, fontWeight: 600 }}>
+                    <Typography sx={{ fontSize: '10px', color: '#7f8c8d', mb: 0.3, fontWeight: 600 }}>
                       {isArabic ? 'الباركود' : 'Code Barre'}
                     </Typography>
-                    <Typography sx={{ fontWeight: 'bold', fontSize: '16px', color: '#2c3e50', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
+                    <Typography sx={{ fontWeight: 'bold', fontSize: '14px', color: '#2c3e50', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
                       {printList[0]?.barcode}
                     </Typography>
                   </Box>
                   <Box sx={{ backgroundColor: '#e8f5e9', p: 1, borderRadius: 1.5, border: '2px solid #4caf50' }}>
-                    <Typography sx={{ fontSize: '10px', color: '#388e3c', mb: 0.2, fontWeight: 600 }}>
+                    <Typography sx={{ fontSize: '9px', color: '#388e3c', mb: 0.2, fontWeight: 600 }}>
                       {isArabic ? 'السعر' : 'Prix'}
                     </Typography>
-                    <Typography sx={{ fontWeight: 'bold', fontSize: '17px', color: '#2e7d32' }}>
+                    <Typography sx={{ fontWeight: 'bold', fontSize: '15px', color: '#2e7d32' }}>
                       {printList[0]?.price.toFixed(2)} DA
                     </Typography>
                   </Box>
-                  <Box sx={{ backgroundColor: '#e3f2fd', p: 1, borderRadius: 1.5, border: '2px solid #2196f3' }}>
-                    <Typography sx={{ fontSize: '10px', color: '#1976d2', mb: 0.2, fontWeight: 600 }}>
-                      {isArabic ? 'الحجم' : 'Size'}
-                    </Typography>
-                    <Typography sx={{ fontWeight: 'bold', fontSize: '14px', color: '#1565c0' }}>
-                      {['20*40', '45*30', '45*35'][selectedSize]}
-                    </Typography>
-                  </Box>
-                </Box>
+                                  </Box>
               ) : (
-                <Box sx={{ textAlign: 'center', py: 2 }}>
-                  <Typography sx={{ fontSize: '12px', color: '#95a5a6', fontWeight: 600 }}>
-                    {isArabic ? 'اختر منتج لعرض التفاصيل' : 'Sélectionnez un produit'}
+                                  <Typography sx={{ fontSize: '12px', color: '#95a5a6', textAlign: 'center' }}>
+                    {isArabic ? 'اختر منتج' : 'Sélectionnez produit'}
                   </Typography>
-                </Box>
-              )}
+                              )}
             </Box>
 
             {/* Table */}
             <Box sx={{ backgroundColor: '#fff', border: '2px solid #e0e0e0', borderRadius: 2, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', flexShrink: 0 }}>
-              <TableContainer sx={{ maxHeight: '120px' }}>
+              <TableContainer sx={{ maxHeight: '150px' }}>
                 <Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ backgroundColor: '#2c3e50', color: '#fff', fontWeight: 'bold', fontSize: '12px', py: 1 }}>
-                        {isArabic ? 'رقم' : 'N#'}
-                      </TableCell>
-                      <TableCell sx={{ backgroundColor: '#2c3e50', color: '#fff', fontWeight: 'bold', fontSize: '12px', py: 1 }}>
-                        {texts.codebarre}
-                      </TableCell>
-                      <TableCell sx={{ backgroundColor: '#2c3e50', color: '#fff', fontWeight: 'bold', fontSize: '12px', py: 1 }}>
-                        {texts.price}
-                      </TableCell>
-                      <TableCell sx={{ backgroundColor: '#2c3e50', color: '#fff', fontWeight: 'bold', fontSize: '12px', py: 1 }}>
-                        {texts.nbr}
-                      </TableCell>
+                      <TableCell sx={{ backgroundColor: '#2c3e50', color: '#fff', fontWeight: 'bold', fontSize: '11px', py: 0.8 }}>N#                      </TableCell>
+                      <TableCell sx={{ backgroundColor: '#2c3e50', color: '#fff', fontWeight: 'bold', fontSize: '11px', py: 0.8 }}>                        {texts.codebarre}                      </TableCell>
+                      <TableCell sx={{ backgroundColor: '#2c3e50', color: '#fff', fontWeight: 'bold', fontSize: '11px', py: 0.8 }}>Qty                      </TableCell>
+                      <TableCell sx={{ backgroundColor: '#2c3e50', color: '#fff', fontWeight: 'bold', fontSize: '11px', py: 0.8, textAlign: 'center' }}>✕                      </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {printList.map((item, idx) => (
                       <TableRow key={idx} sx={{ '&:hover': { backgroundColor: '#f5f5f5' } }}>
-                        <TableCell sx={{ fontSize: '12px', py: 0.8, fontWeight: 600 }}>{idx + 1}</TableCell>
-                        <TableCell sx={{ fontSize: '12px', py: 0.8, fontFamily: 'monospace' }}>{item.barcode}</TableCell>
-                        <TableCell sx={{ fontSize: '12px', py: 0.8, color: '#27ae60', fontWeight: 'bold' }}>{item.price.toFixed(2)}</TableCell>
-                        <TableCell sx={{ fontSize: '12px', py: 0.8, fontWeight: 600 }}>{item.quantity}</TableCell>
+                        <TableCell sx={{ fontSize: '11px', py: 0.5, fontWeight: 600 }}>{idx + 1}</TableCell>
+                        <TableCell sx={{ fontSize: '10px', py: 0.5, fontFamily: 'monospace', fontWeight: 'bold' }}>{item.barcode}</TableCell>
+                        <TableCell sx={{ fontSize: '11px', py: 0.5, fontWeight: 600 }}>{item.quantity}</TableCell>
+                        <TableCell sx={{ fontSize: '11px', py: 0.5, textAlign: 'center' }}>
+                          <IconButton size="small" onClick={() => handleRemoveItem(idx)} sx={{ p: 0, color: '#e74c3c', '&:hover': { backgroundColor: '#ffe0e0' } }}>
+                            <DeleteIcon sx={{ fontSize: '16px' }} />
+                          </IconButton>
+</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -454,22 +427,27 @@ const ProductEtiquetteThermal: React.FC<ProductEtiquetteThermalProps> = ({ isAra
             </Box>
 
             {/* Controls */}
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', backgroundColor: '#fff', p: 1.5, borderRadius: 2, border: '2px solid #e0e0e0', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', flexShrink: 0 }}>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', backgroundColor: '#fff', p: 1.5, borderRadius: 2, border: '2px solid #e0e0e0', flexShrink: 0 }}>
               <Button onClick={handleIncrement} sx={{ minWidth: 45, height: 45, backgroundColor: '#27ae60', color: '#fff', fontSize: '22px', borderRadius: 2, fontWeight: 'bold', '&:hover': { backgroundColor: '#229954' } }}>+</Button>
-              <TextField value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} type="number" size="small" inputProps={{ min: 1, style: { textAlign: 'center', fontSize: '26px', fontWeight: 'bold', color: '#2c3e50' } }} sx={{ width: '110px', '& .MuiOutlinedInput-root': { borderRadius: 2, border: '2px solid #3498db' } }} />
-              <Button onClick={handleDecrement} sx={{ minWidth: 45, height: 45, backgroundColor: '#e74c3c', color: '#fff', fontSize: '22px', borderRadius: 2, fontWeight: 'bold', '&:hover': { backgroundColor: '#c0392b' } }}>-</Button>
+              <TextField 
+value={quantity} 
+onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} 
+type="number" 
+size="small" 
+inputProps={{ min: 1, style: { textAlign: 'center', fontSize: '20px', fontWeight: 'bold', color: '#2c3e50', padding: '8px' } }} 
+sx={{ width: '80px', '& .MuiOutlinedInput-root': { borderRadius: 1, border: '2px solid #3498db', height: '45px' } }} 
+/>
+              <Button onClick={handleDecrement} sx={{ minWidth: 45, height: 45, backgroundColor: '#e74c3c', color: '#fff', fontSize: '22px', borderRadius: 2, fontWeight: 'bold', '&:hover': { backgroundColor: '#c0392b' } }}>−</Button>
               <Button sx={{ flex: 1, height: 45, backgroundColor: '#34495e', color: '#fff', fontWeight: 'bold', fontSize: '11px', borderRadius: 2, '&:hover': { backgroundColor: '#2c3e50' } }}>{texts.addTable}</Button>
               <Button onClick={handleRemoveAll} sx={{ minWidth: 45, height: 45, backgroundColor: '#e74c3c', color: '#fff', fontSize: '18px', borderRadius: 2, '&:hover': { backgroundColor: '#c0392b' } }}>🗑️</Button>
             </Box>
 
-            {/* Checkbox */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
               <Checkbox size="small" checked={showPreview} onChange={(e) => setShowPreview(e.target.checked)} />
               <Typography sx={{ fontSize: '11px' }}>{texts.preview}</Typography>
             </Box>
 
-            {/* Print Button */}
-            <Button fullWidth onClick={handlePrint} disabled={printList.length === 0} sx={{ height: 55, backgroundColor: '#27ae60', color: '#fff', fontSize: '18px', fontWeight: 'bold', borderRadius: 2, boxShadow: '0 4px 12px rgba(39,174,96,0.3)', textTransform: 'uppercase', letterSpacing: '1px', flexShrink: 0, '&:hover': { backgroundColor: '#229954', boxShadow: '0 6px 16px rgba(39,174,96,0.4)' }, '&:disabled': { backgroundColor: '#95a5a6', cursor: 'not-allowed', boxShadow: 'none' } }}>
+                        <Button fullWidth onClick={handlePrint} disabled={printList.length === 0} sx={{ height: 50, backgroundColor: '#27ae60', color: '#fff', fontSize: '16px', fontWeight: 'bold', borderRadius: 1, boxShadow: '0 4px 12px rgba(39,174,96,0.3)', textTransform: 'uppercase', flexShrink: 0, '&:hover': { backgroundColor: '#229954', boxShadow: '0 6px 16px rgba(39,174,96,0.4)' }, '&:disabled': { backgroundColor: '#95a5a6', cursor: 'not-allowed' } }}>
               {texts.print}
             </Button>
           </Box>

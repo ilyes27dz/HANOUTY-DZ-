@@ -1,14 +1,17 @@
-// src/renderer/App.tsx - ✅ النسخة النهائية مع Dialog
-import React, { useState, useEffect } from 'react';
+// src/renderer/App.tsx - ✅ ULTIMATE PRODUCTION VERSION v2.0 - TRIAL PROTECTION COMPLETE
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ThemeProvider, createTheme, 
-  Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography 
+  Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography,
+  Box, CircularProgress 
 } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import Login from './Login';
 import Activation from './Activation';
 import Dashboard from './Dashboard';
 import PinLock from './PinLock';
+import WarningIcon from '@mui/icons-material/Warning';
+
 
 const originalConsoleError = console.error;
 console.error = (...args: any[]) => {
@@ -22,6 +25,7 @@ console.error = (...args: any[]) => {
   originalConsoleError(...args);
 };
 
+
 const theme = createTheme({
   direction: 'rtl',
   typography: {
@@ -29,7 +33,9 @@ const theme = createTheme({
   },
 });
 
-type AppState = 'login' | 'activation' | 'dashboard' | 'locked';
+
+type AppState = 'login' | 'activation' | 'dashboard' | 'locked' | 'trial-expired';
+
 
 const notifyElectron = (channel: string) => {
   if (typeof window !== 'undefined' && (window as any).electron) {
@@ -42,34 +48,117 @@ const notifyElectron = (channel: string) => {
         (window as any).electron.logout();
       }
     } catch (error) {
-      console.error('Error notifying Electron:', error);
+      console.error('❌ Error notifying Electron:', error);
     }
   }
 };
+
 
 function App() {
   const [currentState, setCurrentState] = useState<AppState>('login');
   const [isLocked, setIsLocked] = useState(false);
   const [loginKey, setLoginKey] = useState(0);
+const trialCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
-  // ✅ Dialog State
-  const [alertDialog, setAlertDialog] = useState({ open: false, message: '', onConfirm: null as (() => void) | null });
-  const [confirmDialog, setConfirmDialog] = useState({ open: false, message: '', onConfirm: null as (() => void) | null });
+  // ✅ Dialog States
+  const [alertDialog, setAlertDialog] = useState({ 
+open: false, 
+message: '', 
+onConfirm: null as (() => void) | null,
+    icon: 'warning' as 'warning' | 'success' | 'error'
+});
 
-  // ✅ دالة عرض رسالة
-  const showMessage = (msg: string) => {
-    setAlertDialog({ open: true, message: msg, onConfirm: null });
+  const [confirmDialog, setConfirmDialog] = useState({ 
+open: false, 
+message: '', 
+onConfirm: null as (() => void) | null 
+});
+
+
+  // ✅ Trial Expired Dialog
+  const [trialExpiredDialog, setTrialExpiredDialog] = useState({ 
+    open: false,
+    countdown: 3
+  });
+
+
+  // ============================================
+  // 🔹 Show Message
+  // ============================================
+  const showMessage = (msg: string, icon: 'warning' | 'success' | 'error' = 'warning') => {
+    setAlertDialog({ open: true, message: msg, onConfirm: null, icon });
   };
 
-  // ✅ دالة تأكيد
+
+  // ============================================
+  // 🔹 Show Confirm
+  // ============================================
   const showConfirm = (msg: string, onConfirm: () => void) => {
     setConfirmDialog({ open: true, message: msg, onConfirm });
   };
 
+
+  // ============================================
+  // 🔹 Trial Expired Handler
+  // ============================================
+  const handleTrialExpired = () => {
+    console.log('⏰ Trial expired event received!');
+    
+    // تنظيف الفترات الزمنية
+    if (trialCheckIntervalRef.current) {
+      clearInterval(trialCheckIntervalRef.current);
+    }
+
+
+    // عرض Dialog الانتهاء
+    setTrialExpiredDialog({ open: true, countdown: 3 });
+
+
+    // حذف البيانات
+    localStorage.removeItem('isTrial');
+    localStorage.removeItem('trialStartDate');
+    localStorage.removeItem('trialDays');
+    localStorage.removeItem('activationType');
+    localStorage.removeItem('isActivated');
+
+
+    // الإغلاق التلقائي بعد 3 ثواني
+    let countdown = 3;
+    const countdownInterval = setInterval(() => {
+      countdown--;
+      setTrialExpiredDialog({ open: true, countdown: Math.max(0, countdown) });
+      
+      if (countdown <= 0) {
+        clearInterval(countdownInterval);
+        if ((window as any).electron?.closeApp) {
+          (window as any).electron.closeApp();
+        } else if ((window as any).electron?.quitApp) {
+          (window as any).electron.quitApp();
+        } else {
+          window.close();
+        }
+      }
+    }, 1000);
+  };
+
+
+  // ============================================
+  // 🔹 Initialize Effects
+  // ============================================
   useEffect(() => {
+console.log('🚀 App initialized');
+    
     checkTimeManipulation();
     checkActivationStatus();
 
+
+    // ✅ استماع لحدث انتهاء التجريب من Electron
+    const unsubscribe = (window as any).electron?.onTrialExpired?.(() => {
+      handleTrialExpired();
+    });
+
+
+    // Keyboard shortcut
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === 'l') {
         e.preventDefault();
@@ -77,26 +166,43 @@ function App() {
       }
     };
 
+
     window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
+
+    return () => {
+window.removeEventListener('keydown', handleKeyPress);
+if (unsubscribe) unsubscribe();
+    };
   }, []);
 
+
+  // ============================================
+  // 🔹 Setup Intervals
+  // ============================================
   useEffect(() => {
+// التحقق من التجريب كل ساعة
     const trialInterval = setInterval(() => {
       checkTrialExpiry();
     }, 1000 * 60 * 60);
 
+
+    // التحقق من التاريخ كل 5 دقائق
     const timeInterval = setInterval(() => {
       checkTimeManipulation();
     }, 1000 * 60 * 5);
 
+
+    // Heartbeat كل دقيقة
     const heartbeatInterval = setInterval(() => {
       sendHeartbeat();
     }, 1000 * 60);
 
+
+    // التحقق من الإيقاف كل 5 دقائق
     const statusCheckInterval = setInterval(() => {
       checkDeactivation();
     }, 1000 * 60 * 5);
+
 
     return () => {
       clearInterval(trialInterval);
@@ -106,10 +212,15 @@ function App() {
     };
   }, []);
 
+
+  // ============================================
+  // 🔹 Send Heartbeat
+  // ============================================
   const sendHeartbeat = async () => {
     const activationCode = localStorage.getItem('activationCode');
     
     if (!activationCode) return;
+
 
     try {
       if ((window as any).electron && (window as any).electron.getMachineInfo) {
@@ -124,16 +235,24 @@ function App() {
             computerName: machineInfo.computerName
           })
         });
+
+
+        console.log('💓 Heartbeat sent');
       }
     } catch (error) {
-      console.error('Heartbeat error:', error);
+      console.error('❌ Heartbeat error:', error);
     }
   };
 
+
+  // ============================================
+  // 🔹 Check Deactivation
+  // ============================================
   const checkDeactivation = async () => {
     const activationCode = localStorage.getItem('activationCode');
     
     if (!activationCode) return;
+
 
     try {
       if ((window as any).electron && (window as any).electron.getMachineInfo) {
@@ -148,14 +267,16 @@ function App() {
           })
         });
 
+
         const data = await response.json();
+
 
         if (data.deactivated || !data.valid) {
           if ((window as any).electron && (window as any).electron.deleteActivation) {
             await (window as any).electron.deleteActivation();
           }
           localStorage.clear();
-          showMessage('⚠️ تم إيقاف التفعيل من قبل المطور!\n\nيرجى التواصل للحصول على تفعيل جديد.');
+          showMessage('⚠️ تم إيقاف التفعيل من قبل المطور!\n\nيرجى التواصل للحصول على تفعيل جديد.', 'error');
           setTimeout(() => {
             setCurrentState('login');
             setLoginKey(prev => prev + 1);
@@ -164,16 +285,20 @@ function App() {
         }
       }
     } catch (error) {
-      console.error('Status check error:', error);
+      console.error('❌ Status check error:', error);
     }
   };
 
+
+  // ============================================
+  // 🔹 Check Time Manipulation
+  // ============================================
   const checkTimeManipulation = async () => {
     if ((window as any).electron && (window as any).electron.checkTimeManipulation) {
       const result = await (window as any).electron.checkTimeManipulation();
       
       if (result.manipulated) {
-        showMessage('⚠️ تم اكتشاف تلاعب في تاريخ النظام!\n\nالبرنامج محمي ضد هذا النوع من الاختراق.\n\nسيتم إيقاف البرنامج.');
+        showMessage('⚠️ تم اكتشاف تلاعب في تاريخ النظام!\n\nالبرنامج محمي ضد هذا النوع من الاختراق.\n\nسيتم إيقاف البرنامج.', 'error');
         
         setTimeout(async () => {
           if ((window as any).electron.deleteActivation) {
@@ -189,6 +314,10 @@ function App() {
     }
   };
 
+
+  // ============================================
+  // 🔹 Check Trial Expiry
+  // ============================================
   const checkTrialExpiry = async () => {
     if ((window as any).electron && (window as any).electron.loadActivation) {
       const result = await (window as any).electron.loadActivation();
@@ -202,23 +331,19 @@ function App() {
           const daysPassed = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
           const daysLeft = (trialDays || 5) - daysPassed;
 
+
+          console.log(`📊 Trial Status: ${daysLeft} days left`);
+
+
           if (daysLeft <= 0) {
-            if ((window as any).electron.deleteActivation) {
-              await (window as any).electron.deleteActivation();
-            }
-            localStorage.clear();
-            showMessage('⏰ انتهت الفترة التجريبية!\n\nيرجى شراء النسخة الكاملة للاستمرار.');
-            setTimeout(() => {
-              setCurrentState('login');
-              setLoginKey(prev => prev + 1);
-              notifyElectron('minimize-window');
-            }, 2000);
+            console.log('⏰ Trial expired!');
+            handleTrialExpired();
           } else if (daysLeft <= 3) {
             const lastNotification = localStorage.getItem('lastTrialNotification');
             const today = new Date().toDateString();
             
             if (lastNotification !== today) {
-              showMessage(`⏰ تنبيه: متبقي ${daysLeft} ${daysLeft === 1 ? 'يوم' : 'أيام'} على انتهاء الفترة التجريبية!`);
+              showMessage(`⏰ تنبيه: متبقي ${daysLeft} ${daysLeft === 1 ? 'يوم' : 'أيام'} على انتهاء الفترة التجريبية!`, 'warning');
               localStorage.setItem('lastTrialNotification', today);
             }
           }
@@ -227,6 +352,10 @@ function App() {
     }
   };
 
+
+  // ============================================
+  // 🔹 Check Activation Status ✅ مع التعديل
+  // ============================================
   const checkActivationStatus = async () => {
     if ((window as any).electron && (window as any).electron.loadActivation) {
       const result = await (window as any).electron.loadActivation();
@@ -235,42 +364,96 @@ function App() {
         const { isActivated, activationType, isTrial, trialStartDate, trialDays, activationCode } = result.data;
         
         if (isActivated) {
+// ✅ التحقق من Trial
           if (isTrial && trialStartDate) {
             const startDate = new Date(trialStartDate);
             const currentDate = new Date();
             const daysPassed = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
             const daysLeft = (trialDays || 5) - daysPassed;
             
-            if (daysLeft > 0) {
-              localStorage.setItem('isActivated', 'true');
-              localStorage.setItem('isTrial', 'true');
-              localStorage.setItem('trialStartDate', trialStartDate);
-              localStorage.setItem('trialDays', trialDays.toString());
-              localStorage.setItem('activationCode', activationCode || '');
-            } else {
+// ✅ إذا كانت Trial منتهية
+            if (daysLeft <= 0) {
+              console.log('⏰ Trial expired - forcing Activation page');
+            
+              // حذف كل البيانات
               if ((window as any).electron.deleteActivation) {
                 await (window as any).electron.deleteActivation();
               }
               localStorage.clear();
+            
+              // ✅ الذهاب مباشرة لصفحة Activation
+              setCurrentState('activation');
+              notifyElectron('minimize-window');
+              return;
             }
-          } else if (activationType === 'full') {
+            
+            // ✅ إذا كانت Trial صحيحة
+            localStorage.setItem('isActivated', 'true');
+            localStorage.setItem('isTrial', 'true');
+            localStorage.setItem('trialStartDate', trialStartDate);
+            localStorage.setItem('trialDays', trialDays.toString());
+            localStorage.setItem('activationCode', activationCode || '');
+            console.log(`✅ Trial activated: ${daysLeft} days left`);
+            setCurrentState('login');
+            notifyElectron('minimize-window');
+            return;
+          }
+          
+          // ✅ التفعيل الكامل
+          if (activationType === 'full') {
             localStorage.setItem('isActivated', 'true');
             localStorage.setItem('activationType', 'full');
             localStorage.setItem('activationCode', activationCode || '');
+console.log('✅ Full activation found');
+            setCurrentState('login');
+            notifyElectron('minimize-window');
+            return;
           }
         }
       }
     }
 
+
+    // ✅ إذا لم يكن هناك تفعيل أو Trial
     setCurrentState('login');
     notifyElectron('minimize-window');
   };
 
+
+  // ============================================
+  // 🔹 Handlers
+  // ============================================
   const handleLogin = () => {
     const isActivated = localStorage.getItem('isActivated');
     const isTrial = localStorage.getItem('isTrial');
+const activationType = localStorage.getItem('activationType');
 
-    if (isActivated === 'true' || isTrial === 'true') {
+
+    // ✅ فحص التجريبية مرة أخرى قبل الدخول
+    if (isTrial === 'true') {
+      const trialStartDate = localStorage.getItem('trialStartDate');
+      const trialDays = parseInt(localStorage.getItem('trialDays') || '5', 10);
+      
+      if (trialStartDate) {
+        const startDate = new Date(trialStartDate);
+        const currentDate = new Date();
+        const daysPassed = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        const daysLeft = trialDays - daysPassed;
+        
+        // ✅ إذا انتهت التجريبية
+        if (daysLeft <= 0) {
+          localStorage.clear();
+          setCurrentState('activation');
+          return;
+        }
+      }
+    }
+
+
+    if ((isActivated === 'true' || isTrial === 'true') && activationType === 'full') {
+      setCurrentState('dashboard');
+      notifyElectron('maximize-window');
+    } else if (isTrial === 'true') {
       setCurrentState('dashboard');
       notifyElectron('maximize-window');
     } else {
@@ -279,12 +462,14 @@ function App() {
     }
   };
 
+
   const handleActivation = () => {
     notifyElectron('maximize-window');
     setTimeout(() => {
       setCurrentState('dashboard');
     }, 300);
   };
+
 
   const handleLogout = () => {
     showConfirm('هل أنت متأكد من تسجيل الخروج؟', () => {
@@ -294,14 +479,73 @@ function App() {
     });
   };
 
+
   const lockScreen = () => {
     setIsLocked(true);
   };
+
 
   const unlockScreen = () => {
     setIsLocked(false);
   };
 
+
+  // ============================================
+  // 🔹 Trial Expired Screen
+  // ============================================
+  if (currentState === 'trial-expired' || trialExpiredDialog.open) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Box
+          sx={{
+            width: '100%',
+            height: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          }}
+        >
+          <Box
+            sx={{
+              textAlign: 'center',
+              backgroundColor: '#fff',
+              borderRadius: 4,
+              padding: 4,
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+              maxWidth: 500,
+            }}
+          >
+            <WarningIcon sx={{ fontSize: 80, color: '#e74c3c', mb: 2 }} />
+            <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#2c3e50', mb: 2 }}>
+              ⏰ انتهت النسخة التجريبية
+            </Typography>
+            <Typography variant="body1" sx={{ color: '#7f8c8d', mb: 3, lineHeight: 1.8 }}>
+              شكراً لاستخدام HANOUTY DZ
+              <br />
+              <br />
+              يرجى شراء النسخة الكاملة للاستمرار في استخدام البرنامج
+              <br />
+              <br />
+              سيتم إغلاق البرنامج بعد {trialExpiredDialog.countdown} ثوانٍ
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <CircularProgress size={30} sx={{ color: '#e74c3c' }} />
+              <Typography variant="h6" sx={{ color: '#e74c3c', fontWeight: 'bold' }}>
+                {trialExpiredDialog.countdown}
+              </Typography>
+            </Box>
+          </Box>
+        </Box>
+      </ThemeProvider>
+    );
+  }
+
+
+  // ============================================
+  // 🔹 Locked Screen
+  // ============================================
   if (isLocked) {
     return (
       <ThemeProvider theme={theme}>
@@ -311,22 +555,34 @@ function App() {
     );
   }
 
+
+  // ============================================
+  // 🔹 Main App
+  // ============================================
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
+
       {currentState === 'login' && (
         <Login 
           key={loginKey}
           onLogin={handleLogin} 
         />
       )}
-      {currentState === 'activation' && <Activation onActivate={handleActivation} />}
-      {currentState === 'dashboard' && <Dashboard onLogout={handleLogout} onLock={lockScreen} />}
+
+      {currentState === 'activation' && (
+<Activation onActivate={handleActivation} />
+      )}
+      
+      {currentState === 'dashboard' && (
+<Dashboard onLogout={handleLogout} onLock={lockScreen} />
+      )}
+
 
       {/* ✅ Alert Dialog */}
       <Dialog 
         open={alertDialog.open} 
-        onClose={() => setAlertDialog({ open: false, message: '', onConfirm: null })}
+        onClose={() => setAlertDialog({ ...alertDialog, open: false })}
         PaperProps={{
           sx: { borderRadius: 3, minWidth: 300 }
         }}
@@ -334,14 +590,20 @@ function App() {
         <DialogTitle sx={{ textAlign: 'center', fontWeight: 700, color: '#FF6B35' }}>
           إشعار
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 2 }}>
+          {alertDialog.icon === 'warning' && (
+            <WarningIcon sx={{ fontSize: 40, color: '#f39c12', mb: 1 }} />
+          )}
+          {alertDialog.icon === 'error' && (
+            <WarningIcon sx={{ fontSize: 40, color: '#e74c3c', mb: 1 }} />
+          )}
           <Typography sx={{ whiteSpace: 'pre-line', textAlign: 'center', fontSize: '1rem', lineHeight: 1.8 }}>
             {alertDialog.message}
           </Typography>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
           <Button 
-            onClick={() => setAlertDialog({ open: false, message: '', onConfirm: null })} 
+            onClick={() => setAlertDialog({ ...alertDialog, open: false })} 
             variant="contained"
             sx={{ bgcolor: '#FF6B35', px: 4, '&:hover': { bgcolor: '#E55A2B' } }}
           >
@@ -349,6 +611,7 @@ function App() {
           </Button>
         </DialogActions>
       </Dialog>
+
 
       {/* ✅ Confirm Dialog */}
       <Dialog 
@@ -389,5 +652,6 @@ function App() {
     </ThemeProvider>
   );
 }
+
 
 export default App;
